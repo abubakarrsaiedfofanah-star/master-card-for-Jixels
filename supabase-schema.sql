@@ -28,7 +28,7 @@ create table if not exists audit_log (
 create index if not exists cards_branch_idx on cards (branch);
 create index if not exists cards_status_idx on cards (status);
 create index if not exists cards_position_idx on cards (position);
-create index if not exists cards_email_idx on cards (email);
+create unique index if not exists cards_email_unique_idx on cards (lower(email)) where email <> '';
 
 alter table cards add column if not exists email text not null default '';
 
