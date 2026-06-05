@@ -127,7 +127,8 @@ apply  <script>
       pin: sessionStorage.getItem('jixelsAdminPin') || '',
       token: sessionStorage.getItem('jixelsAdminToken') || '',
       records: [],
-      editingId: ''
+      editingId: '',
+      refreshTimer: null
     };
     const els = {
       user: document.getElementById('user'),
@@ -190,6 +191,14 @@ apply  <script>
       if (!response.ok) throw new Error(data.error || 'Unable to load cards.');
       state.records = data.cards || [];
       render();
+    }
+
+    function startAutoRefresh() {
+      if (state.refreshTimer) clearInterval(state.refreshTimer);
+      state.refreshTimer = setInterval(() => {
+        if (!state.token || document.hidden) return;
+        loadCards().catch((error) => console.warn(error.message));
+      }, 3000);
     }
 
     function filtered() {
@@ -367,6 +376,7 @@ apply  <script>
       try {
         await login();
         await loadCards();
+        startAutoRefresh();
         els.adminArea.classList.remove('hidden');
       } catch (error) {
         alert(error.message);
@@ -428,12 +438,18 @@ apply  <script>
       }
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(error.message)));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && state.token) loadCards().catch((error) => console.warn(error.message));
+    });
 
     if (state.pin) {
       els.user.value = state.user;
       els.pin.value = state.pin;
       if (state.token) {
-        loadCards().then(() => els.adminArea.classList.remove('hidden')).catch(() => els.loginBtn.click());
+        loadCards().then(() => {
+          startAutoRefresh();
+          els.adminArea.classList.remove('hidden');
+        }).catch(() => els.loginBtn.click());
       } else {
         els.loginBtn.click();
       }
