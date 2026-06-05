@@ -25,6 +25,23 @@
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .login-form { display: grid; gap: 10px; }
     .login-form input, .login-form button { width: 100%; }
+    .password-wrap {
+      display: grid;
+      grid-template-columns: 1fr 44px;
+      gap: 6px;
+      align-items: center;
+    }
+    .login-form .password-wrap input,
+    .password-wrap input { width: 100%; }
+    .password-wrap button {
+      width: 44px;
+      min-height: 42px;
+      padding: 0;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      font-size: 16px;
+    }
     .link-button { background: transparent; border: 0; color: var(--blue); padding: 0; font-weight: 800; text-align: left; }
     .reset-box { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
     .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
@@ -49,14 +66,20 @@
       <h1>Jixels Admin</h1>
       <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
-        <input id="pin" type="password" placeholder="Admin PIN">
+        <div class="password-wrap">
+          <input id="pin" type="password" placeholder="Admin PIN">
+          <button type="button" class="toggle-password" data-target="pin" aria-label="Show admin PIN">Eye</button>
+        </div>
         <button id="loginBtn" type="button">Login</button>
         <button id="forgotToggleBtn" class="link-button" type="button">Forgot password?</button>
         <div class="reset-box hidden" id="resetBox">
           <input id="resetEmail" type="email" placeholder="Registered admin email">
           <button id="sendResetBtn" type="button" class="secondary">Send Verification Code</button>
           <input id="resetCode" inputmode="numeric" placeholder="Verification code">
-          <input id="resetPassword" type="password" placeholder="New password">
+          <div class="password-wrap">
+            <input id="resetPassword" type="password" placeholder="New password">
+            <button type="button" class="toggle-password" data-target="resetPassword" aria-label="Show reset password">Eye</button>
+          </div>
           <button id="resetPasswordBtn" type="button">Reset Password</button>
         </div>
       </div>
@@ -105,7 +128,12 @@
         <h2>Change Admin Login</h2>
         <label>Username<input id="newUser" value="admin" required></label>
         <label>Admin email<input id="newEmail" type="email" placeholder="admin@example.com" required></label>
-        <label>New Password<input id="newPassword" type="password" required></label>
+        <label>New Password
+          <div class="password-wrap">
+            <input id="newPassword" type="password" required>
+            <button type="button" class="toggle-password" data-target="newPassword" aria-label="Show new password">Eye</button>
+          </div>
+        </label>
         <button type="submit">Change Password</button>
       </form>
 
@@ -432,6 +460,15 @@
     els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
     els.sendResetBtn.addEventListener('click', () => sendResetCode().catch((error) => alert(error.message)));
     els.resetPasswordBtn.addEventListener('click', () => resetPassword().catch((error) => alert(error.message)));
+    document.querySelectorAll('.toggle-password').forEach((button) => {
+      button.addEventListener('click', () => {
+        const input = document.getElementById(button.dataset.target);
+        if (!input) return;
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        button.textContent = showing ? 'Eye' : 'Hide';
+      });
+    });
 
     els.rows.addEventListener('click', async (event) => {
       const image = event.target.closest('img[data-photo]');
