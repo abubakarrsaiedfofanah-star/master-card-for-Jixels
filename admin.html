@@ -35,7 +35,7 @@
     th { font-size: 12px; color: #617086; }
     .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .summary span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; background: #f8fafc; }
-    .thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; background: #eef2f6; border: 1px solid var(--line); cursor: zoom-in; }
+    .thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center top; background: #eef2f6; border: 1px solid var(--line); cursor: zoom-in; }
     .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .72); display: grid; place-items: center; padding: 20px; z-index: 20; }
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
     .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
@@ -97,7 +97,7 @@
         <label>National ID<input id="createNationalId" required></label>
         <label>Phone<input id="createPhone" required></label>
         <label>Position<input id="createPosition" required></label>
-        <label>Picture<input id="createPhoto" type="file" accept="image/*" capture="user" required></label>
+        <label>Picture<input id="createPhoto" type="file" accept="image/*" required></label>
         <button type="submit">Create Pending Card</button>
       </form>
 

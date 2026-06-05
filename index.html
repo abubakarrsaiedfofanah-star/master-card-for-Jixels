@@ -131,11 +131,12 @@
     }
 
     .photo-preview {
-      width: 78px;
-      height: 78px;
+      width: 96px;
+      height: 96px;
       border: 1px solid var(--line);
       border-radius: 50%;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center top;
       background: #eef3f8;
     }
 
@@ -217,7 +218,8 @@
     .photo-ring img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center top;
       background: #eef3f8;
     }
 
@@ -397,7 +399,8 @@
       width: 144px;
       height: 144px;
       border-radius: 50%;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center top;
       background: #eef2f6;
       border: 3px solid var(--gold);
       margin: 8px auto 12px;
@@ -431,6 +434,16 @@
       font-size: 12px;
       font-weight: 700;
       background: #f8fafc;
+    }
+
+    .success-message {
+      border: 1px solid #9fd3b7;
+      border-radius: 8px;
+      background: #effaf3;
+      color: #14532d;
+      font-weight: 800;
+      line-height: 1.35;
+      padding: 12px;
     }
 
     table {
@@ -501,6 +514,7 @@
       <form class="panel" id="apply">
         <h2>Card Form</h2>
         <p id="scanNotice" class="hidden">Scan the master card QR code to open registration.</p>
+        <p id="successMessage" class="success-message hidden">Registration saved successfully. Please wait for admin approval.</p>
         <div class="form-grid">
           <label>
             Full name
@@ -540,7 +554,7 @@
           </label>
           <label>
             Picture
-            <input id="photo" type="file" accept="image/*" capture="user" required>
+            <input id="photo" type="file" accept="image/*" required>
           </label>
           <img id="photoPreview" class="photo-preview hidden" alt="Photo preview">
           <div class="control-row">
@@ -629,6 +643,7 @@
       topbar: document.getElementById('topbar'),
       openFormLink: document.getElementById('openFormLink'),
       scanNotice: document.getElementById('scanNotice'),
+      successMessage: document.getElementById('successMessage'),
       name: document.getElementById('name'),
       location: document.getElementById('location'),
       branch: document.getElementById('branch'),
@@ -980,6 +995,7 @@
       const photoFile = els.photo.files[0];
       let photo = '';
       if (photoFile) photo = await readFileAsDataUrl(photoFile);
+      els.successMessage.classList.add('hidden');
       const payload = {
         masterToken,
         name: els.name.value.trim(),
@@ -999,7 +1015,8 @@
       renderRecords();
       resetForm();
       if (hasMasterAccess && !state.adminPin) {
-        alert('Registration submitted successfully. Please wait for admin approval.');
+        els.successMessage.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (record.status === 'Approved') {
         setCard(record);
       } else {
