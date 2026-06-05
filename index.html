@@ -544,6 +544,7 @@
               <option>Lost</option>
               <option>Inactive</option>
             </select>
+            <input id="publicStatus" class="hidden" value="Pending" readonly>
           </label>
           <label>
             Picture
@@ -642,6 +643,7 @@
       position: document.getElementById('position'),
       statusField: document.getElementById('statusField'),
       status: document.getElementById('status'),
+      publicStatus: document.getElementById('publicStatus'),
       photo: document.getElementById('photo'),
       photoPreview: document.getElementById('photoPreview'),
       cardId: document.getElementById('cardId'),
@@ -699,7 +701,7 @@
         return;
       }
       state.currentRecord = record;
-      els.cardId.textContent = record.id || '';
+      els.cardId.textContent = record.nationalId || record.id || '';
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
@@ -725,7 +727,7 @@
         position: 'Director',
         location: '',
         branch: '',
-        nationalId: '',
+        nationalId: '29352273',
         phone: '+254713846393',
         photo: 'james-photo.jpeg'
       });
@@ -855,7 +857,7 @@
       els.photo.required = true;
       els.photoPreview.classList.add('hidden');
       els.photoPreview.removeAttribute('src');
-      els.saveBtn.textContent = 'Submit Registration';
+      els.saveBtn.textContent = hasMasterAccess && !state.adminPin ? 'Save And Generate Card' : 'Submit Registration';
       els.cancelEditBtn.classList.add('hidden');
     }
 
@@ -1066,8 +1068,9 @@
     if (hasMasterAccess) {
       els.topbar.classList.add('hidden');
       document.querySelector('.cards-row').classList.add('hidden');
-      els.statusField.classList.add('hidden');
-      els.saveBtn.textContent = 'Submit Registration';
+      els.status.classList.add('hidden');
+      els.publicStatus.classList.remove('hidden');
+      els.saveBtn.textContent = 'Save And Generate Card';
     } else {
       els.topbar.classList.add('hidden');
       els.form.classList.add('hidden');
