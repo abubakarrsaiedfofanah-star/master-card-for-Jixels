@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jixels Admin</title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace('https://master-card-for-jixels.onrender.com/admin');
+    }
+  </script>
   <style>
     :root {
       --blue: #4b9bda;
@@ -170,6 +175,13 @@
       editingId: '',
       refreshTimer: null
     };
+
+    function friendlyError(error) {
+      if (error && /failed to fetch/i.test(error.message || '')) {
+        return 'Could not reach the hosted server. Open https://master-card-for-jixels.onrender.com/admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
+      }
+      return error.message || 'Something went wrong.';
+    }
     const els = {
       user: document.getElementById('user'),
       pin: document.getElementById('pin'),
@@ -454,12 +466,12 @@
         startAutoRefresh();
         els.adminArea.classList.remove('hidden');
       } catch (error) {
-        alert(error.message);
+        alert(friendlyError(error));
       }
     });
     els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
-    els.sendResetBtn.addEventListener('click', () => sendResetCode().catch((error) => alert(error.message)));
-    els.resetPasswordBtn.addEventListener('click', () => resetPassword().catch((error) => alert(error.message)));
+    els.sendResetBtn.addEventListener('click', () => sendResetCode().catch((error) => alert(friendlyError(error))));
+    els.resetPasswordBtn.addEventListener('click', () => resetPassword().catch((error) => alert(friendlyError(error))));
     document.querySelectorAll('.toggle-password').forEach((button) => {
       button.addEventListener('click', () => {
         const input = document.getElementById(button.dataset.target);
@@ -494,22 +506,22 @@
         if (button.dataset.action === 'edit') startEdit(card);
         render();
       } catch (error) {
-        alert(error.message);
+        alert(friendlyError(error));
       }
     });
 
     els.editForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!state.editingId) return;
-      try { await updateCard(); } catch (error) { alert(error.message); }
+      try { await updateCard(); } catch (error) { alert(friendlyError(error)); }
     });
     els.createForm.addEventListener('submit', async (event) => {
       event.preventDefault();
-      try { await createManualCard(); } catch (error) { alert(error.message); }
+      try { await createManualCard(); } catch (error) { alert(friendlyError(error)); }
     });
     els.passwordForm.addEventListener('submit', async (event) => {
       event.preventDefault();
-      try { await changePassword(); } catch (error) { alert(error.message); }
+      try { await changePassword(); } catch (error) { alert(friendlyError(error)); }
     });
     els.clearBtn.addEventListener('click', () => { state.editingId = ''; els.editForm.reset(); });
     els.search.addEventListener('input', render);
@@ -517,14 +529,14 @@
     els.pendingBtn.addEventListener('click', () => { els.search.value = 'pending'; render(); });
     els.allBtn.addEventListener('click', () => { els.search.value = ''; render(); });
     els.exportBtn.addEventListener('click', exportCsv);
-    els.backupBtn.addEventListener('click', () => backupJson().catch((error) => alert(error.message)));
+    els.backupBtn.addEventListener('click', () => backupJson().catch((error) => alert(friendlyError(error))));
     els.restoreInput.addEventListener('change', () => {
       const file = els.restoreInput.files[0];
       if (file && confirm('Restore this backup and replace current records?')) {
-        restoreJson(file).catch((error) => alert(error.message));
+        restoreJson(file).catch((error) => alert(friendlyError(error)));
       }
     });
-    els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(error.message)));
+    els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && state.token) loadCards().catch((error) => console.warn(error.message));
     });
