@@ -1,0 +1,14 @@
+{
+  "name": "jixels-id-cards",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jixels ID card registration and approval app.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

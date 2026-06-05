@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jixels Electronic ID Cards</title>
+  <style>
+    :root {
+      --blue: #4b9bda;
+      --blue-dark: #4b9bda;
+      --gold: #f0c51b;
+      --ink: #202938;
+      --muted: #6f7f92;
+      --line: #d9e0ea;
+      --page: #eef2f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 25px;
+      line-height: 1.1;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button, .button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--blue);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 10px 13px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    button.secondary, .button.secondary {
+      background: #ffffff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 365px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 13px;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #3b4655;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid #cbd4df;
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    input[type="file"] { padding: 8px; }
+
+    select {
+      width: 100%;
+      border: 1px solid #cbd4df;
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .photo-preview {
+      width: 78px;
+      height: 78px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      object-fit: contain;
+      background: #eef3f8;
+    }
+
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(2, 330px);
+      gap: 24px;
+      justify-content: center;
+      align-items: start;
+    }
+
+    .id-card {
+      width: 330px;
+      height: 520px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(31, 47, 68, .13);
+    }
+
+    .logo-front {
+      position: absolute;
+      top: 20px;
+      left: 40px;
+      width: 250px;
+      height: 124px;
+      object-fit: contain;
+    }
+
+    .front-shape {
+      position: absolute;
+      left: 24px;
+      top: 328px;
+      width: 282px;
+      height: 130px;
+      background: var(--blue);
+      border-radius: 18px;
+      box-shadow: 0 12px 24px rgba(31, 85, 157, .26), inset 0 1px 0 rgba(255, 255, 255, .22);
+      border: 1px solid rgba(255, 255, 255, .26);
+    }
+
+    .front-shape::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 11px;
+      height: 3px;
+      background: var(--gold);
+      border-radius: 10px;
+    }
+
+    .front-shape::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 17px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 42%);
+      pointer-events: none;
+    }
+
+    .photo-ring {
+      position: absolute;
+      left: 79px;
+      top: 148px;
+      width: 172px;
+      height: 172px;
+      border-radius: 50%;
+      border: 5px solid var(--gold);
+      background: #f8fbff;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .photo-ring img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #eef3f8;
+    }
+
+    .photo-ring span {
+      color: #8ca3be;
+      font-size: 29px;
+      font-weight: 800;
+    }
+
+    .front-info {
+      position: absolute;
+      left: 44px;
+      right: 44px;
+      top: 345px;
+      text-align: left;
+      z-index: 2;
+    }
+
+    .detail-line {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 7px;
+      align-items: start;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .detail-line:last-of-type { border-bottom: 0; }
+
+    .detail-label {
+      color: rgba(255, 255, 255, .76);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .id-number,
+    .person-name,
+    .person-role {
+      color: #fff;
+      font-weight: 800;
+      line-height: 1.18;
+      overflow-wrap: anywhere;
+    }
+
+    .person-name {
+      color: var(--gold);
+      font-size: 18px;
+    }
+
+    .id-number,
+    .person-role {
+      font-size: 14px;
+    }
+
+    .back-text {
+      position: absolute;
+      left: 35px;
+      right: 32px;
+      top: 136px;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .back-text .indent {
+      margin-left: 41px;
+      text-align: left;
+    }
+
+    .responsibility-title {
+      margin: 18px 0 9px;
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .rules {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding-left: 31px;
+      font-size: 12.5px;
+      font-weight: 400;
+      line-height: 1.12;
+    }
+
+    .rules li { padding-left: 10px; }
+
+    .logo-back {
+      position: absolute;
+      left: 115px;
+      bottom: 46px;
+      width: 100px;
+      height: 52px;
+      object-fit: contain;
+    }
+
+    .qr-box {
+      position: absolute;
+      left: 115px;
+      top: 24px;
+      width: 100px;
+      height: 100px;
+      border: 1px solid #d7dfe9;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      padding: 6px;
+    }
+
+    .qr-box img {
+      width: 100%;
+      height: 100%;
+    }
+
+    .location-line {
+      color: #d7e0ec;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-top: 0;
+      margin-bottom: 5px;
+      min-height: 16px;
+    }
+
+    .status-line {
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+
+    .verify-panel {
+      width: min(620px, 100%);
+      margin: 24px auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 26px;
+      text-align: center;
+      box-shadow: 0 14px 30px rgba(31, 47, 68, .12);
+    }
+
+    .verify-badge {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 10px 18px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .6px;
+      margin-bottom: 12px;
+    }
+
+    .verify-badge.valid { background: #138a4b; }
+    .verify-badge.invalid { background: #b42318; }
+
+    .verify-panel dl {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 0;
+      text-align: left;
+      margin: 18px 0 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .verify-panel dt,
+    .verify-panel dd {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .verify-panel dt { font-weight: 800; color: #657489; background: #f8fafc; }
+    .verify-panel dd { margin: 0; font-weight: 700; }
+    .verify-panel dt:last-of-type,
+    .verify-panel dd:last-of-type { border-bottom: 0; }
+
+    .verify-photo {
+      width: 144px;
+      height: 144px;
+      border-radius: 50%;
+      object-fit: contain;
+      background: #eef2f6;
+      border: 3px solid var(--gold);
+      margin: 8px auto 12px;
+      display: block;
+    }
+
+    .field-label {
+      color: rgba(255, 255, 255, .74);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      margin-right: 5px;
+      text-transform: uppercase;
+    }
+
+    .records {
+      margin-top: 22px;
+    }
+
+    .summary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+
+    .summary span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f8fafc;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th { font-size: 12px; color: #5f6f82; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .cards-row { grid-template-columns: 1fr; justify-items: center; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .topbar, .panel, .records, .master-note { display: none !important; }
+      .app { width: auto; padding: 0; }
+      .workspace { display: block; }
+      .cards-row { display: flex; gap: 18px; justify-content: center; }
+      .id-card { box-shadow: none; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="verify-panel hidden" id="verifyPanel">
+      <div class="verify-badge" id="verifyBadge"></div>
+      <img class="verify-photo hidden" id="verifyPhoto" alt="">
+      <h1 id="verifyTitle"></h1>
+      <dl id="verifyDetails"></dl>
+    </section>
+
+    <div class="topbar" id="topbar">
+      <h1>Jixels Electronic ID Cards</h1>
+      <div class="actions">
+        <a class="button secondary" href="#apply" id="openFormLink">Open Form</a>
+        <button class="secondary" type="button" id="printBtn">Print Current Card</button>
+        <button class="secondary" type="button" id="downloadBtn">Download Card PNG</button>
+        <button type="button" id="masterBtn">Show Master Card</button>
+      </div>
+    </div>
+
+    <section class="workspace">
+      <form class="panel" id="apply">
+        <h2>Card Form</h2>
+        <p id="scanNotice" class="hidden">Scan the master card QR code to open registration.</p>
+        <div class="form-grid">
+          <label>
+            Full name
+            <input id="name" autocomplete="name" required placeholder="Enter full name">
+          </label>
+          <label>
+            Location
+            <input id="location" required placeholder="Enter location">
+          </label>
+          <label>
+            Branch
+            <input id="branch" required placeholder="Enter branch">
+          </label>
+          <label>
+            National ID
+            <input id="nationalId" required placeholder="Enter national ID">
+          </label>
+          <label>
+            Phone number
+            <input id="phone" inputmode="tel" autocomplete="tel" required placeholder="Enter phone number">
+          </label>
+          <label>
+            Position
+            <input id="position" required placeholder="Enter position">
+          </label>
+          <label>
+            Status
+            <select id="status">
+              <option>Pending</option>
+              <option>Approved</option>
+              <option>Rejected</option>
+              <option>Suspended</option>
+              <option>Lost</option>
+              <option>Inactive</option>
+            </select>
+          </label>
+          <label>
+            Picture
+            <input id="photo" type="file" accept="image/*" capture="user" required>
+          </label>
+          <img id="photoPreview" class="photo-preview hidden" alt="Photo preview">
+          <div class="control-row">
+            <button type="submit" id="saveBtn">Save And Generate Card</button>
+            <button type="button" class="secondary hidden" id="cancelEditBtn">Cancel Edit</button>
+          </div>
+        </div>
+      </form>
+
+      <div>
+        <div class="cards-row">
+          <article class="id-card" id="frontCard">
+            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+            <div class="front-shape"></div>
+            <div class="photo-ring"><span id="photoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
+            <div class="front-info">
+              <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name" id="cardName"></span></div>
+              <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="cardId"></span></div>
+              <div class="detail-line"><span class="detail-label">Position:</span><span class="person-role" id="cardPosition"></span></div>
+              <div class="status-line" id="cardStatus"></div>
+            </div>
+          </article>
+
+          <article class="id-card" id="backCard">
+            <div class="back-text">
+              <div class="indent">If found please return to:</div>
+              <div class="indent">Jixels Technologies Ltd</div>
+              <div class="indent">P.O BOX 480-50101 Butere.</div>
+              <div class="indent">Phone:+254 713 111 666</div>
+              <div class="responsibility-title">Cardholder Responsibilities:</div>
+              <ul class="rules">
+                <li>This ID card is the property of Jixels Technologies Ltd.</li>
+                <li>Use of this card is strictly for the person to whom it is issued.</li>
+                <li>Must be displayed at all times while on company premises.</li>
+                <li>Report lost/stolen cards immediately to HR.</li>
+              </ul>
+            </div>
+            <div class="qr-box" id="qrBox"><img id="qrImage" alt="Master QR code"></div>
+            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+          </article>
+        </div>
+
+        <div class="panel records hidden">
+          <h2>Saved Cards</h2>
+          <div class="control-row">
+            <input id="adminPin" type="password" placeholder="Admin PIN">
+            <button type="button" id="unlockBtn">Unlock</button>
+            <input id="searchInput" placeholder="Search name, ID, phone, position">
+            <button type="button" class="secondary" id="exportBtn">Export CSV</button>
+          </div>
+          <div class="summary" id="summary"></div>
+          <table>
+            <thead>
+              <tr><th>ID No.</th><th>Name</th><th>Location</th><th>Phone</th><th>Position</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    const adminPinKey = 'jixelsAdminPin';
+    let masterRegistrationUrl = window.location.href;
+    const masterToken = new URLSearchParams(window.location.search).get('master') || '';
+    const hasMasterAccess = Boolean(masterToken);
+
+    const state = {
+      records: [],
+      adminPin: sessionStorage.getItem(adminPinKey) || '',
+      editingId: '',
+      currentRecord: null
+    };
+
+    const els = {
+      form: document.getElementById('apply'),
+      verifyPanel: document.getElementById('verifyPanel'),
+      verifyBadge: document.getElementById('verifyBadge'),
+      verifyPhoto: document.getElementById('verifyPhoto'),
+      verifyTitle: document.getElementById('verifyTitle'),
+      verifyDetails: document.getElementById('verifyDetails'),
+      topbar: document.getElementById('topbar'),
+      openFormLink: document.getElementById('openFormLink'),
+      scanNotice: document.getElementById('scanNotice'),
+      name: document.getElementById('name'),
+      location: document.getElementById('location'),
+      branch: document.getElementById('branch'),
+      nationalId: document.getElementById('nationalId'),
+      phone: document.getElementById('phone'),
+      position: document.getElementById('position'),
+      status: document.getElementById('status'),
+      photo: document.getElementById('photo'),
+      photoPreview: document.getElementById('photoPreview'),
+      cardId: document.getElementById('cardId'),
+      cardName: document.getElementById('cardName'),
+      cardPosition: document.getElementById('cardPosition'),
+      cardStatus: document.getElementById('cardStatus'),
+      cardPhoto: document.getElementById('cardPhoto'),
+      photoPlaceholder: document.getElementById('photoPlaceholder'),
+      recordsBody: document.getElementById('recordsBody'),
+      summary: document.getElementById('summary'),
+      adminPin: document.getElementById('adminPin'),
+      unlockBtn: document.getElementById('unlockBtn'),
+      searchInput: document.getElementById('searchInput'),
+      exportBtn: document.getElementById('exportBtn'),
+      saveBtn: document.getElementById('saveBtn'),
+      cancelEditBtn: document.getElementById('cancelEditBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      printBtn: document.getElementById('printBtn'),
+      masterBtn: document.getElementById('masterBtn'),
+      qrImage: document.getElementById('qrImage')
+    };
+
+    function qrUrl(data) {
+      return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data)}`;
+    }
+
+    function isLocalRegistrationUrl() {
+      try {
+        const url = new URL(masterRegistrationUrl);
+        return ['localhost', '127.0.0.1'].includes(url.hostname) ||
+          url.hostname.startsWith('192.168.') ||
+          url.hostname.startsWith('10.') ||
+          /^172\.(1[6-9]|2\d|3[0-1])\./.test(url.hostname);
+      } catch {
+        return true;
+      }
+    }
+
+    function confirmMasterQrReady() {
+      if (!state.currentRecord?.isMaster || !isLocalRegistrationUrl()) return true;
+      return confirm('This master QR uses a local/private network link. It may only work on this Wi-Fi. Continue anyway?');
+    }
+
+    function verificationUrl(token) {
+      const url = new URL(masterRegistrationUrl || window.location.href);
+      url.pathname = '/';
+      url.search = `?token=${encodeURIComponent(token)}`;
+      url.hash = '';
+      return url.href;
+    }
+
+    function setCard(record) {
+      state.currentRecord = record;
+      els.cardId.textContent = record.id || '';
+      els.cardName.textContent = record.name;
+      els.cardPosition.textContent = record.position;
+      const isMasterCard = Boolean(record.isMaster);
+      els.cardStatus.textContent = '';
+      els.qrImage.src = !isMasterCard && record.id && record.verificationToken ? qrUrl(verificationUrl(record.verificationToken)) : qrUrl(masterRegistrationUrl);
+
+      if (record.photo) {
+        els.cardPhoto.src = record.photo;
+        els.cardPhoto.classList.remove('hidden');
+        els.photoPlaceholder.classList.add('hidden');
+      } else {
+        els.cardPhoto.removeAttribute('src');
+        els.cardPhoto.classList.add('hidden');
+        els.photoPlaceholder.classList.remove('hidden');
+      }
+    }
+
+    function showMaster() {
+      setCard({
+        isMaster: true,
+        id: 'JIX/D',
+        name: 'James O. Atsali',
+        position: 'Director',
+        location: '',
+        branch: '',
+        nationalId: '',
+        phone: '+254713846393',
+        photo: 'james-photo.jpeg'
+      });
+      els.qrImage.src = qrUrl(masterRegistrationUrl);
+    }
+
+    function filteredRecords() {
+      const query = els.searchInput.value.trim().toLowerCase();
+      if (!query) return state.records;
+      return state.records.filter((record) => [record.id, record.name, record.location, record.phone, record.position, record.status]
+        .some((value) => String(value || '').toLowerCase().includes(query)));
+    }
+
+    function renderSummary() {
+      const counts = {};
+      state.records.forEach((record) => {
+        const key = record.position || 'Unknown';
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      els.summary.innerHTML = Object.entries(counts)
+        .map(([position, count]) => `<span>${position}: ${count}</span>`)
+        .join('') || '<span>No records loaded</span>';
+    }
+
+    function renderRecords() {
+      els.recordsBody.innerHTML = '';
+      const records = filteredRecords();
+      renderSummary();
+      if (!state.adminPin) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="7">Enter admin PIN to view saved cards.</td>';
+        els.recordsBody.appendChild(row);
+        return;
+      }
+      if (!records.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="7">No saved cards found.</td>';
+        els.recordsBody.appendChild(row);
+        return;
+      }
+
+      records.forEach((record) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${record.id}</td>
+          <td>${record.name}</td>
+          <td>${record.location || ''}</td>
+          <td>${record.phone || ''}</td>
+          <td>${record.position}</td>
+          <td>${record.status || 'Pending'}</td>
+          <td>
+            <button type="button" data-action="view" data-id="${record.id}">View</button>
+            <button type="button" data-action="approve" data-id="${record.id}">Approve</button>
+            <button type="button" data-action="reject" data-id="${record.id}">Reject</button>
+            <button type="button" data-action="inactive" data-id="${record.id}">Inactive</button>
+            <button type="button" data-action="edit" data-id="${record.id}">Edit</button>
+          </td>
+        `;
+        els.recordsBody.appendChild(row);
+      });
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function loadRecords() {
+      if (!state.adminPin) {
+        state.records = [];
+        renderRecords();
+        return;
+      }
+      try {
+        const response = await fetch('/api/cards', { headers: { 'x-admin-pin': state.adminPin } });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load records.');
+        state.records = Array.isArray(data.cards) ? data.cards : [];
+        renderRecords();
+      } catch {
+        state.records = [];
+        renderRecords();
+      }
+    }
+
+    async function saveCard(payload) {
+      const response = await fetch('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save card.');
+      return data.card;
+    }
+
+    async function updateCard(id, payload) {
+      const response = await fetch(`/api/cards/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': state.adminPin },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update card.');
+      return data.card;
+    }
+
+    async function setStatus(id, status, inactiveReason = '') {
+      const response = await fetch(`/api/cards/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pin': state.adminPin },
+        body: JSON.stringify({ status, inactiveReason })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update status.');
+      return data.card;
+    }
+
+    function resetForm() {
+      state.editingId = '';
+      els.form.reset();
+      els.status.value = 'Pending';
+      els.photo.required = true;
+      els.photoPreview.classList.add('hidden');
+      els.photoPreview.removeAttribute('src');
+      els.saveBtn.textContent = 'Save And Generate Card';
+      els.cancelEditBtn.classList.add('hidden');
+    }
+
+    function startEdit(record) {
+      state.editingId = record.id;
+      els.name.value = record.name || '';
+      els.location.value = record.location || '';
+      els.phone.value = record.phone || '';
+      els.position.value = record.position || '';
+      els.status.value = record.status || 'Pending';
+      els.photo.required = false;
+      if (record.photo) {
+        els.photoPreview.src = record.photo;
+        els.photoPreview.classList.remove('hidden');
+      }
+      els.saveBtn.textContent = 'Update Card';
+      els.cancelEditBtn.classList.remove('hidden');
+      location.hash = 'apply';
+    }
+
+    function exportCsv() {
+      const rows = [['ID No.', 'Name', 'Location', 'Phone', 'Position', 'Status', 'Created At']];
+      state.records.forEach((record) => rows.push([
+        record.id,
+        record.name,
+        record.location || '',
+        record.phone || '',
+        record.position,
+        record.status || 'Pending',
+        record.createdAt || ''
+      ]));
+      const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'jixels-id-cards.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    async function downloadCard() {
+      const isMasterCard = state.currentRecord && state.currentRecord.isMaster;
+      if (!state.currentRecord || (!isMasterCard && state.currentRecord.status !== 'Approved')) {
+        alert('This ID card can only be downloaded after admin approval.');
+        return;
+      }
+      if (!window.html2canvas) {
+        alert('Download library is not available. Please check internet connection and try again.');
+        return;
+      }
+      if (!confirmMasterQrReady()) return;
+      const canvas = await html2canvas(document.querySelector('.cards-row'), { backgroundColor: '#eef2f6', scale: 2 });
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${els.cardId.textContent.replace('ID No. ', '') || 'jixels-master-card'}.png`;
+      link.click();
+    }
+
+    async function loadVerificationFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (!token) return false;
+      try {
+        const response = await fetch(`/api/verify?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Card not found.');
+        const card = data.card;
+        renderVerification(card);
+        return true;
+      } catch (error) {
+        renderVerification({
+          id: 'Unknown',
+          name: 'Card Not Found',
+          position: '',
+          branch: '',
+          nationalIdLast4: '',
+          photo: '',
+          status: 'Deleted',
+          valid: false,
+          invalidReason: error.message || 'This card is not active in the system.',
+          verifiedAt: new Date().toISOString()
+        });
+        return true;
+      }
+    }
+
+    function renderVerification(card) {
+      const valid = Boolean(card.valid);
+      els.topbar.classList.add('hidden');
+      els.form.classList.add('hidden');
+      document.querySelector('.cards-row').classList.add('hidden');
+      els.verifyPanel.classList.remove('hidden');
+      els.verifyBadge.className = `verify-badge ${valid ? 'valid' : 'invalid'}`;
+      els.verifyBadge.textContent = valid ? 'VALID' : 'NOT VALID';
+      els.verifyTitle.textContent = card.name || 'Verification Result';
+      if (card.photo) {
+        els.verifyPhoto.src = card.photo;
+        els.verifyPhoto.classList.remove('hidden');
+      } else {
+        els.verifyPhoto.removeAttribute('src');
+        els.verifyPhoto.classList.add('hidden');
+      }
+        els.verifyDetails.innerHTML = `
+          <dt>ID No.</dt><dd>${card.id}</dd>
+          <dt>Position</dt><dd>${card.position}</dd>
+          <dt>Branch</dt><dd>${card.branch || ''}</dd>
+          <dt>Status</dt><dd>${card.status}</dd>
+          <dt>Result</dt><dd>${valid ? 'Approved by admin.' : (card.invalidReason || 'This card is not valid.')}</dd>
+          <dt>National ID</dt><dd>${card.nationalIdLast4 ? `****${card.nationalIdLast4}` : 'Not shown'}</dd>
+          <dt>Checked At</dt><dd>${new Date(card.verifiedAt).toLocaleString()}</dd>
+        `;
+    }
+
+    els.form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const photoFile = els.photo.files[0];
+      let photo = '';
+      if (photoFile) photo = await readFileAsDataUrl(photoFile);
+      const payload = {
+        masterToken,
+        name: els.name.value.trim(),
+        location: els.location.value.trim(),
+        branch: els.branch.value.trim(),
+        nationalId: els.nationalId.value.trim(),
+        phone: els.phone.value.trim(),
+        position: els.position.value.trim(),
+        status: els.status.value,
+        photo
+      };
+
+      const record = state.editingId ? await updateCard(state.editingId, payload) : await saveCard(payload);
+      const index = state.records.findIndex((item) => item.id === record.id);
+      if (index === -1) state.records.push(record);
+      else state.records[index] = record;
+      renderRecords();
+      setCard(record);
+      resetForm();
+    });
+
+    els.recordsBody.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-id][data-action]');
+      if (!button) return;
+      const record = state.records.find((item) => item.id === button.dataset.id);
+      if (!record) return;
+      if (button.dataset.action === 'view') setCard(record);
+      if (button.dataset.action === 'approve' || button.dataset.action === 'reject' || button.dataset.action === 'inactive') {
+        const nextStatus = button.dataset.action === 'approve' ? 'Approved' : (button.dataset.action === 'inactive' ? 'Inactive' : 'Rejected');
+        const inactiveReason = nextStatus === 'Inactive'
+          ? (prompt('Reason for marking this worker inactive?', record.inactiveReason || 'Left company') || 'This worker is no longer active.')
+          : '';
+        setStatus(record.id, nextStatus, inactiveReason).then((updated) => {
+          const index = state.records.findIndex((item) => item.id === updated.id);
+          if (index !== -1) state.records[index] = updated;
+          renderRecords();
+          setCard(updated);
+        }).catch((error) => alert(error.message));
+      }
+      if (button.dataset.action === 'edit') startEdit(record);
+    });
+
+    els.photo.addEventListener('change', async () => {
+      const file = els.photo.files[0];
+      if (!file) return;
+      els.photoPreview.src = await readFileAsDataUrl(file);
+      els.photoPreview.classList.remove('hidden');
+    });
+
+    els.unlockBtn.addEventListener('click', () => {
+      state.adminPin = els.adminPin.value.trim();
+      sessionStorage.setItem(adminPinKey, state.adminPin);
+      loadRecords();
+    });
+
+    els.searchInput.addEventListener('input', renderRecords);
+    els.exportBtn.addEventListener('click', exportCsv);
+    els.cancelEditBtn.addEventListener('click', resetForm);
+    els.downloadBtn.addEventListener('click', downloadCard);
+
+    els.printBtn.addEventListener('click', () => {
+      const isMasterCard = state.currentRecord && state.currentRecord.isMaster;
+      if (!state.currentRecord || (!isMasterCard && state.currentRecord.status !== 'Approved')) {
+        alert('This ID card can only be printed after admin approval.');
+        return;
+      }
+      if (!confirmMasterQrReady()) return;
+      window.print();
+    });
+    els.masterBtn.addEventListener('click', showMaster);
+
+    async function loadMasterLink() {
+      const response = await fetch('/api/master-link');
+      const data = await response.json();
+      if (data.url) {
+        masterRegistrationUrl = data.url;
+        if (!state.currentRecord || !state.currentRecord.id) els.qrImage.src = qrUrl(masterRegistrationUrl);
+      }
+    }
+
+    els.qrImage.src = qrUrl(masterRegistrationUrl);
+    els.adminPin.value = state.adminPin;
+
+    if (!hasMasterAccess) {
+      els.topbar.classList.add('hidden');
+      els.form.classList.add('hidden');
+      [...els.form.querySelectorAll('label, button, img.photo-preview')].forEach((item) => item.classList.add('hidden'));
+      els.scanNotice.classList.remove('hidden');
+      els.openFormLink.classList.add('hidden');
+    }
+
+    loadMasterLink();
+    loadVerificationFromUrl().then((loaded) => {
+      if (!loaded) showMaster();
+    });
+  </script>
+</body>
+</html>

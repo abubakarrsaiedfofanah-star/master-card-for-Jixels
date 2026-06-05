@@ -1,0 +1,12 @@
+.env
+node_modules/
+npm-debug.log*
+
+# Local demo data and secrets. Use Supabase/env vars after hosting.
+cards-db.json
+audit-log.json
+admin-config.json
+admin-config*.json
+master-config.json
+client-registration-qr.png
+WhatsApp Image*.jpeg

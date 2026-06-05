@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jixels Admin</title>
+  <style>
+    :root {
+      --blue: #4b9bda;
+      --ink: #202938;
+      --line: #d9e0ea;
+      --page: #eef2f6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+    main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 44px; }
+    .topbar, .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    h1, h2 { margin: 0; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    input, select { border: 1px solid #cbd4df; border-radius: 6px; padding: 10px 11px; font: inherit; }
+    button, a.button { border: 0; border-radius: 6px; padding: 10px 12px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
+    button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+    .wide { grid-column: 1 / -1; }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 11px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { font-size: 12px; color: #617086; }
+    .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .summary span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; background: #f8fafc; }
+    .thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; background: #eef2f6; border: 1px solid var(--line); cursor: zoom-in; }
+    .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .72); display: grid; place-items: center; padding: 20px; z-index: 20; }
+    .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
+    .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+    .hidden { display: none !important; }
+    @media (max-width: 860px) { .grid, .topbar { grid-template-columns: 1fr; display: grid; } }
+  </style>
+</head>
+<body>
+loo  <main>
+    <div class="topbar">
+      <h1>Jixels Admin</h1>
+      <div class="controls">
+        <input id="user" placeholder="Username" value="admin">
+        <input id="pin" type="password" placeholder="Admin PIN">
+        <button id="loginBtn" type="button">Login</button>
+        <a class="button secondary" href="/">Registration Page</a>wait 
+      </div>
+    </div>
+
+    <section id="adminArea" class="grid hidden">
+      <form class="panel" id="editForm">
+        <h2>Edit Card</h2>
+        <label>ID No.<input id="editId" disabled></label>
+        <label>Name<input id="editName" required></label>
+        <label>Location<input id="editLocation" required></label>
+        <label>Branch<input id="editBranch" required></label>
+        <label>National ID<input id="editNationalId" required></label>
+        <label>Phone<input id="editPhone" required></label>
+        <label>Position<input id="editPosition" required></label>
+        <label>Inactive reason<input id="editInactiveReason" placeholder="Example: Left company"></label>
+        <label>Status
+          <select id="editStatus">
+            <option>Pending</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+            <option>Suspended</option>
+            <option>Lost</option>
+            <option>Inactive</option>
+          </select>
+        </label>
+        <div class="controls">
+          <button type="submit">Save Changes</button>
+          <button type="button" class="secondary" id="clearBtn">Clear</button>
+        </div>
+      </form>
+
+      <form class="panel" id="createForm">
+        <h2>Create Card Manually</h2>
+        <label>Name<input id="createName" required></label>
+        <label>Location<input id="createLocation" required></label>
+        <label>Branch<input id="createBranch" required></label>
+        <label>National ID<input id="createNationalId" required></label>
+        <label>Phone<input id="createPhone" required></label>
+        <label>Position<input id="createPosition" required></label>
+        <label>Picture<input id="createPhoto" type="file" accept="image/*" capture="user" required></label>
+        <button type="submit">Create Pending Card</button>
+      </form>
+
+      <form class="panel" id="passwordForm">
+        <h2>Change Admin Login</h2>
+        <label>Username<input id="newUser" value="admin" required></label>
+        <label>New Password<input id="newPassword" type="password" required></label>
+        <button type="submit">Change Password</button>
+      </form>
+
+      <div class="panel wide">
+        <h2>Registrations</h2>
+        <div class="controls">
+          <input id="search" placeholder="Search or type pending">
+          <input id="branchFilter" placeholder="Filter branch">
+          <button type="button" class="secondary" id="pendingBtn">Pending Only</button>
+          <button type="button" class="secondary" id="allBtn">All</button>
+          <button type="button" id="exportBtn">Export CSV</button>
+          <button type="button" id="backupBtn">Backup JSON</button>
+          <label class="button secondary">Restore JSON<input id="restoreInput" type="file" accept="application/json" hidden></label>
+          <button type="button" class="secondary" id="auditBtn">Show Audit</button>
+        </div>
+        <div class="summary" id="summary"></div>
+        <pre class="audit hidden" id="auditBox"></pre>
+        <table>
+          <thead>
+            <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+apply  <script>
+    const state = {
+      user: sessionStorage.getItem('jixelsAdminUser') || 'admin',
+      pin: sessionStorage.getItem('jixelsAdminPin') || '',
+      token: sessionStorage.getItem('jixelsAdminToken') || '',
+      records: [],
+      editingId: ''
+    };
+    const els = {
+      user: document.getElementById('user'),
+      pin: document.getElementById('pin'),
+      loginBtn: document.getElementById('loginBtn'),
+      adminArea: document.getElementById('adminArea'),
+      rows: document.getElementById('rows'),
+      search: document.getElementById('search'),
+      branchFilter: document.getElementById('branchFilter'),
+      summary: document.getElementById('summary'),
+      pendingBtn: document.getElementById('pendingBtn'),
+      allBtn: document.getElementById('allBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      editForm: document.getElementById('editForm'),
+      editId: document.getElementById('editId'),
+      editName: document.getElementById('editName'),
+      editLocation: document.getElementById('editLocation'),
+      editBranch: document.getElementById('editBranch'),
+      editNationalId: document.getElementById('editNationalId'),
+      editPhone: document.getElementById('editPhone'),
+      editPosition: document.getElementById('editPosition'),
+      editInactiveReason: document.getElementById('editInactiveReason'),
+      editStatus: document.getElementById('editStatus'),
+      clearBtn: document.getElementById('clearBtn'),
+      createForm: document.getElementById('createForm'),
+      createName: document.getElementById('createName'),
+      createLocation: document.getElementById('createLocation'),
+      createBranch: document.getElementById('createBranch'),
+      createNationalId: document.getElementById('createNationalId'),
+      createPhone: document.getElementById('createPhone'),
+      createPosition: document.getElementById('createPosition'),
+      createPhoto: document.getElementById('createPhoto'),
+      passwordForm: document.getElementById('passwordForm'),
+      newUser: document.getElementById('newUser'),
+      newPassword: document.getElementById('newPassword'),
+      backupBtn: document.getElementById('backupBtn'),
+      restoreInput: document.getElementById('restoreInput'),
+      auditBtn: document.getElementById('auditBtn'),
+      auditBox: document.getElementById('auditBox')
+    };
+
+    function headers() { return { Authorization: `Bearer ${state.token}` }; }
+
+    async function login() {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: state.user, password: state.pin })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to login.');
+      state.token = data.token;
+      sessionStorage.setItem('jixelsAdminToken', state.token);
+      return data;
+    }
+
+    async function loadCards() {
+      const response = await fetch('/api/cards', { headers: headers() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load cards.');
+      state.records = data.cards || [];
+      render();
+    }
+
+    function filtered() {
+      const q = els.search.value.trim().toLowerCase();
+      const branch = els.branchFilter.value.trim().toLowerCase();
+      return state.records.filter((r) => {
+        const matchesSearch = !q || [r.id, r.name, r.nationalId, r.location, r.branch, r.phone, r.position, r.status]
+          .some((v) => String(v || '').toLowerCase().includes(q));
+        const matchesBranch = !branch || String(r.branch || '').toLowerCase().includes(branch);
+        return matchesSearch && matchesBranch;
+      });
+    }
+
+    function renderSummary() {
+      const counts = {};
+      state.records.forEach((r) => { counts[r.status || 'Pending'] = (counts[r.status || 'Pending'] || 0) + 1; });
+      const statuses = ['Pending', 'Approved', 'Inactive', 'Suspended', 'Lost', 'Rejected'];
+      els.summary.innerHTML = statuses
+        .map((status) => `<span>${status}: ${counts[status] || 0}</span>`)
+        .join('') || '<span>No records</span>';
+    }
+
+    function render() {
+      renderSummary();
+      const records = filtered();
+      els.rows.innerHTML = records.length ? records.map((r) => `
+        <tr>
+          <td>${r.photo ? `<img class="thumb" data-photo="${r.id}" src="${r.photo}" alt="">` : ''}</td><td>${r.id}</td><td>${r.name}</td><td>${r.nationalId || ''}</td><td>${r.location || ''}</td><td>${r.branch || ''}</td><td>${r.phone || ''}</td><td>${r.position}</td><td>${r.status || 'Pending'}</td><td>${(r.status || 'Pending') === 'Approved' ? 'Valid' : 'Not valid'}</td>
+          <td>
+            <button data-action="approve" data-id="${r.id}">Approve</button>
+            <button data-action="reject" data-id="${r.id}">Reject</button>
+            <button data-action="inactive" data-id="${r.id}">Inactive</button>
+            <button data-action="edit" data-id="${r.id}">Edit</button>
+          </td>
+        </tr>`).join('') : '<tr><td colspan="11">No records found.</td></tr>';
+    }
+
+    async function setStatus(id, status, inactiveReason = '') {
+      const response = await fetch(`/api/cards/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, inactiveReason })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update status.');
+      return data.card;
+    }
+
+    function startEdit(card) {
+      state.editingId = card.id;
+      els.editId.value = card.id;
+      els.editName.value = card.name || '';
+      els.editLocation.value = card.location || '';
+      els.editBranch.value = card.branch || '';
+      els.editNationalId.value = card.nationalId || '';
+      els.editPhone.value = card.phone || '';
+      els.editPosition.value = card.position || '';
+      els.editInactiveReason.value = card.inactiveReason || '';
+      els.editStatus.value = card.status || 'Pending';
+    }
+
+    async function updateCard() {
+      const payload = {
+        name: els.editName.value.trim(),
+        location: els.editLocation.value.trim(),
+        branch: els.editBranch.value.trim(),
+        nationalId: els.editNationalId.value.trim(),
+        phone: els.editPhone.value.trim(),
+        position: els.editPosition.value.trim(),
+        status: els.editStatus.value,
+        inactiveReason: els.editInactiveReason.value.trim()
+      };
+      const response = await fetch(`/api/cards/${encodeURIComponent(state.editingId)}`, {
+        method: 'PUT',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to update card.');
+      const index = state.records.findIndex((r) => r.id === data.card.id);
+      if (index !== -1) state.records[index] = data.card;
+      render();
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function createManualCard() {
+      const file = els.createPhoto.files[0];
+      const payload = {
+        name: els.createName.value.trim(),
+        location: els.createLocation.value.trim(),
+        branch: els.createBranch.value.trim(),
+        nationalId: els.createNationalId.value.trim(),
+        phone: els.createPhone.value.trim(),
+        position: els.createPosition.value.trim(),
+        photo: file ? await readFileAsDataUrl(file) : ''
+      };
+      const response = await fetch('/api/cards', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to create card.');
+      state.records.push(data.card);
+      els.createForm.reset();
+      render();
+    }
+
+    function exportCsv() {
+      const rows = [['ID', 'Name', 'National ID', 'Location', 'Branch', 'Phone', 'Position', 'Status', 'Approved By', 'Approved At', 'Created At']];
+      state.records.forEach((r) => rows.push([r.id, r.name, r.nationalId || '', r.location || '', r.branch || '', r.phone || '', r.position, r.status || 'Pending', r.approvedBy || '', r.approvedAt || '', r.createdAt || '']));
+      const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      link.download = 'jixels-id-cards.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    async function backupJson() {
+      const response = await fetch('/api/backup', { headers: headers() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to create backup.');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      link.download = `jixels-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    async function restoreJson(file) {
+      const text = await file.text();
+      const response = await fetch('/api/restore', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: text
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to restore backup.');
+      await loadCards();
+    }
+
+    async function showAudit() {
+      const response = await fetch('/api/audit', { headers: headers() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load audit.');
+      els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
+      els.auditBox.classList.toggle('hidden');
+    }
+
+    async function changePassword() {
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: els.newUser.value.trim(), password: els.newPassword.value })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to change password.');
+      alert('Admin login changed. Please log in again with the new password.');
+    }
+
+    els.loginBtn.addEventListener('click', async () => {
+      state.user = els.user.value.trim() || 'admin';
+      state.pin = els.pin.value.trim();
+      sessionStorage.setItem('jixelsAdminUser', state.user);
+      sessionStorage.setItem('jixelsAdminPin', state.pin);
+      try {
+        await login();
+        await loadCards();
+        els.adminArea.classList.remove('hidden');
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    els.rows.addEventListener('click', async (event) => {
+      const image = event.target.closest('img[data-photo]');
+      if (image) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `<img src="${image.src}" alt="">`;
+        modal.addEventListener('click', () => modal.remove());
+        document.body.appendChild(modal);
+        return;
+      }
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const card = state.records.find((r) => r.id === button.dataset.id);
+      if (!card) return;
+      try {
+        if (button.dataset.action === 'approve') Object.assign(card, await setStatus(card.id, 'Approved'));
+        if (button.dataset.action === 'reject') Object.assign(card, await setStatus(card.id, 'Rejected'));
+        if (button.dataset.action === 'inactive') {
+          const reason = prompt('Reason for marking this worker inactive?', card.inactiveReason || 'Left company') || 'This worker is no longer active.';
+          Object.assign(card, await setStatus(card.id, 'Inactive', reason));
+        }
+        if (button.dataset.action === 'edit') startEdit(card);
+        render();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    els.editForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!state.editingId) return;
+      try { await updateCard(); } catch (error) { alert(error.message); }
+    });
+    els.createForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await createManualCard(); } catch (error) { alert(error.message); }
+    });
+    els.passwordForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await changePassword(); } catch (error) { alert(error.message); }
+    });
+    els.clearBtn.addEventListener('click', () => { state.editingId = ''; els.editForm.reset(); });
+    els.search.addEventListener('input', render);
+    els.branchFilter.addEventListener('input', render);
+    els.pendingBtn.addEventListener('click', () => { els.search.value = 'pending'; render(); });
+    els.allBtn.addEventListener('click', () => { els.search.value = ''; render(); });
+    els.exportBtn.addEventListener('click', exportCsv);
+    els.backupBtn.addEventListener('click', () => backupJson().catch((error) => alert(error.message)));
+    els.restoreInput.addEventListener('change', () => {
+      const file = els.restoreInput.files[0];
+      if (file && confirm('Restore this backup and replace current records?')) {
+        restoreJson(file).catch((error) => alert(error.message));
+      }
+    });
+    els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(error.message)));
+
+    if (state.pin) {
+      els.user.value = state.user;
+      els.pin.value = state.pin;
+      if (state.token) {
+        loadCards().then(() => els.adminArea.classList.remove('hidden')).catch(() => els.loginBtn.click());
+      } else {
+        els.loginBtn.click();
+      }
+    }
+  </script>
+</body>
+</html>
