@@ -605,6 +605,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const adminPinKey = 'jixelsAdminPin';
+    const printedCardId = '29352273';
     let masterRegistrationUrl = window.location.href;
     const masterToken = new URLSearchParams(window.location.search).get('master') || '';
     const hasMasterAccess = Boolean(masterToken);
@@ -691,7 +692,7 @@
         return;
       }
       state.currentRecord = record;
-      els.cardId.textContent = record.nationalId || record.id || '';
+      els.cardId.textContent = printedCardId;
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
@@ -716,7 +717,7 @@
         position: 'Director',
         location: '',
         branch: '',
-        nationalId: '29352273',
+        nationalId: printedCardId,
         phone: '+254713846393',
         photo: 'james-photo.jpeg'
       });
