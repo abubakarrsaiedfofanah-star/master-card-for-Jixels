@@ -52,6 +52,14 @@
       font-weight: 800;
       white-space: nowrap;
     }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .logout-btn {
+      display: none;
+      background: #fff;
+      color: var(--blue-deep);
+      border: 1px solid rgba(255, 255, 255, .75);
+    }
+    .logout-btn.visible { display: inline-flex; }
     main { width: min(1180px, calc(100% - 28px)); margin: 0 auto; padding: 24px 0 34px; flex: 1; }
     .admin-footer-inner { padding: 14px 0; font-size: 12px; font-weight: 700; }
     .topbar, .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
@@ -136,6 +144,7 @@
       .side-menu.open { display: grid; }
       .dashboard-grid { grid-template-columns: 1fr 1fr; }
       .admin-header-inner { min-height: 82px; align-items: flex-start; flex-direction: column; justify-content: center; }
+      .header-actions { justify-content: flex-start; }
       .admin-status { white-space: normal; }
       .controls { display: grid; grid-template-columns: 1fr; }
       .controls input, .controls button, .controls label.button { width: 100%; }
@@ -152,7 +161,10 @@
         <strong>Jixels Admin Panel</strong>
         <span>ID registration, approval, and verification control</span>
       </div>
-      <div class="admin-status">Secure admin access</div>
+      <div class="header-actions">
+        <div class="admin-status">Secure admin access</div>
+        <button class="logout-btn" type="button" id="logoutBtn">Logout</button>
+      </div>
     </div>
   </header>
   <main>
@@ -346,7 +358,8 @@
       dashboardSummary: document.getElementById('dashboardSummary'),
       menuBtn: document.getElementById('menuBtn'),
       sideMenu: document.getElementById('sideMenu'),
-      loginPanel: document.querySelector('.topbar')
+      loginPanel: document.querySelector('.topbar'),
+      logoutBtn: document.getElementById('logoutBtn')
     };
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
@@ -411,6 +424,28 @@
         button.classList.toggle('active', button.dataset.tab === tab);
       });
       els.sideMenu.classList.remove('open');
+    }
+
+    function showLoggedIn() {
+      els.adminArea.classList.remove('hidden');
+      els.loginPanel.classList.add('hidden');
+      els.logoutBtn.classList.add('visible');
+      showTab('dashboard');
+    }
+
+    function logout() {
+      state.token = '';
+      state.pin = '';
+      state.records = [];
+      state.editingId = '';
+      if (state.refreshTimer) clearInterval(state.refreshTimer);
+      state.refreshTimer = null;
+      sessionStorage.removeItem('jixelsAdminToken');
+      sessionStorage.removeItem('jixelsAdminPin');
+      els.pin.value = '';
+      els.adminArea.classList.add('hidden');
+      els.loginPanel.classList.remove('hidden');
+      els.logoutBtn.classList.remove('visible');
     }
 
     function render() {
@@ -595,13 +630,12 @@
         await login();
         await loadCards();
         startAutoRefresh();
-        els.adminArea.classList.remove('hidden');
-        els.loginPanel.classList.add('hidden');
-        showTab('dashboard');
+        showLoggedIn();
       } catch (error) {
         alert(friendlyError(error));
       }
     });
+    els.logoutBtn.addEventListener('click', logout);
     els.menuBtn.addEventListener('click', () => els.sideMenu.classList.toggle('open'));
     els.sideMenu.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-tab]');
@@ -690,9 +724,7 @@
       if (state.token) {
         loadCards().then(() => {
           startAutoRefresh();
-          els.adminArea.classList.remove('hidden');
-          els.loginPanel.classList.add('hidden');
-          showTab('dashboard');
+          showLoggedIn();
         }).catch(() => els.loginBtn.click());
       } else {
         els.loginBtn.click();
