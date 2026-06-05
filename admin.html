@@ -140,6 +140,22 @@
     .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .72); display: grid; place-items: center; padding: 20px; z-index: 20; }
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
     .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+    .notice-box {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #16395f;
+      display: grid;
+      gap: 9px;
+      font-weight: 700;
+      line-height: 1.4;
+      padding: 12px;
+    }
+    .notice-box a {
+      color: #145da0;
+      overflow-wrap: anywhere;
+      font-weight: 800;
+    }
     .card-stage {
       max-width: 100%;
       display: grid;
@@ -381,6 +397,14 @@
           <button type="button" id="printCardBtn">Print Card</button>
           <button type="button" class="secondary" id="downloadCardBtn">Download PNG</button>
         </div>
+        <div class="notice-box hidden" id="notifyBox">
+          <div id="notifyText"></div>
+          <a id="workerClaimLink" href="#" target="_blank" rel="noopener">Worker download link</a>
+          <div class="controls">
+            <a class="button" id="whatsappNotifyLink" href="#" target="_blank" rel="noopener">Send WhatsApp</a>
+            <button type="button" class="secondary" id="copyWorkerLinkBtn">Copy Worker Link</button>
+          </div>
+        </div>
         <p id="cardEmpty">Approve a worker or click View Card on an approved record to show the ID card here.</p>
         <div class="card-stage hidden" id="cardStage">
           <article class="id-card">
@@ -502,7 +526,12 @@
       cardPosition: document.getElementById('cardPosition'),
       cardQr: document.getElementById('cardQr'),
       printCardBtn: document.getElementById('printCardBtn'),
-      downloadCardBtn: document.getElementById('downloadCardBtn')
+      downloadCardBtn: document.getElementById('downloadCardBtn'),
+      notifyBox: document.getElementById('notifyBox'),
+      notifyText: document.getElementById('notifyText'),
+      workerClaimLink: document.getElementById('workerClaimLink'),
+      whatsappNotifyLink: document.getElementById('whatsappNotifyLink'),
+      copyWorkerLinkBtn: document.getElementById('copyWorkerLinkBtn')
     };
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
@@ -513,6 +542,17 @@
 
     function verificationUrl(token) {
       return `${window.location.origin}/?token=${encodeURIComponent(token)}`;
+    }
+
+    function claimUrl(token) {
+      return `${window.location.origin}/?claim=${encodeURIComponent(token)}`;
+    }
+
+    function whatsappPhone(phone) {
+      const digits = String(phone || '').replace(/\D/g, '');
+      if (!digits) return '';
+      if (digits.startsWith('0')) return `254${digits.slice(1)}`;
+      return digits;
     }
 
     async function login() {
@@ -608,6 +648,7 @@
           <td>${r.photo ? `<img class="thumb" data-photo="${r.id}" src="${r.photo}" alt="">` : ''}</td><td>${r.id}</td><td>${r.name}</td><td>${r.nationalId || ''}</td><td>${r.location || ''}</td><td>${r.branch || ''}</td><td>${r.phone || ''}</td><td>${r.position}</td><td>${r.status || 'Pending'}</td><td>${(r.status || 'Pending') === 'Approved' ? 'Valid' : 'Not valid'}</td>
           <td>
             ${(r.status || 'Pending') === 'Approved' ? `<button data-action="view" data-id="${r.id}">View Card</button>` : ''}
+            ${(r.status || 'Pending') === 'Approved' ? `<button data-action="notify" data-id="${r.id}">Notify</button>` : ''}
             <button data-action="approve" data-id="${r.id}">Approve</button>
             <button data-action="reject" data-id="${r.id}">Reject</button>
             <button data-action="inactive" data-id="${r.id}">Inactive</button>
@@ -636,6 +677,16 @@
         els.cardPhotoPlaceholder.classList.remove('hidden');
       }
       els.cardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
+      const link = claimUrl(card.verificationToken || '');
+      const message = `Hello ${card.name || 'there'}, your Jixels ID card has been approved. Open this link to view/download your ID card: ${link}`;
+      els.notifyText.textContent = `Notify ${card.name || 'worker'} that the ID card is ready.`;
+      els.workerClaimLink.href = link;
+      els.workerClaimLink.textContent = link;
+      const phone = whatsappPhone(card.phone);
+      els.whatsappNotifyLink.href = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      els.notifyBox.classList.remove('hidden');
       showTab('card');
     }
 
@@ -876,7 +927,7 @@
         }
         if (button.dataset.action === 'edit') startEdit(card);
         if (button.dataset.action === 'edit') showTab('edit');
-        if (button.dataset.action === 'view') showCard(card);
+        if (button.dataset.action === 'view' || button.dataset.action === 'notify') showCard(card);
         render();
       } catch (error) {
         alert(friendlyError(error));
@@ -918,6 +969,16 @@
       window.print();
     });
     els.downloadCardBtn.addEventListener('click', () => downloadCurrentCard().catch((error) => alert(friendlyError(error))));
+    els.copyWorkerLinkBtn.addEventListener('click', async () => {
+      const url = els.workerClaimLink.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        els.copyWorkerLinkBtn.textContent = 'Copied';
+        setTimeout(() => { els.copyWorkerLinkBtn.textContent = 'Copy Worker Link'; }, 1600);
+      } catch {
+        prompt('Copy this worker link:', url);
+      }
+    });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && state.token) loadCards().catch((error) => console.warn(error.message));
     });
