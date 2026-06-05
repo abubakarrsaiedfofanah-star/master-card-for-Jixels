@@ -12,22 +12,58 @@
   <style>
     :root {
       --blue: #4b9bda;
+      --blue-deep: #2078bc;
       --ink: #202938;
       --line: #d9e0ea;
       --page: #eef2f6;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-    main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 44px; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    .admin-header, .admin-footer {
+      background: var(--blue);
+      color: #fff;
+    }
+    .admin-header-inner, .admin-footer-inner {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+    }
+    .admin-header-inner {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .admin-brand strong { display: block; font-size: 21px; line-height: 1.1; }
+    .admin-brand span { display: block; font-size: 12px; font-weight: 700; opacity: .92; margin-top: 4px; }
+    .admin-status {
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    main { width: min(1180px, calc(100% - 28px)); margin: 0 auto; padding: 24px 0 34px; flex: 1; }
+    .admin-footer-inner { padding: 14px 0; font-size: 12px; font-weight: 700; }
     .topbar, .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
     .topbar { width: min(420px, 100%); margin: 0 auto 16px; display: grid; gap: 14px; }
     h1, h2 { margin: 0; }
     h1 { font-size: 24px; }
     h2 { font-size: 18px; margin-bottom: 12px; }
-    input, select { border: 1px solid #cbd4df; border-radius: 6px; padding: 10px 11px; font: inherit; }
+    input, select { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 10px 11px; font: inherit; }
     button, a.button { border: 0; border-radius: 6px; padding: 10px 12px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
     button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .controls input { width: min(220px, 100%); }
     .login-form { display: grid; gap: 10px; }
     .login-form input, .login-form button { width: 100%; }
     .password-wrap {
@@ -51,7 +87,7 @@
     .reset-box { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
     .admin-shell {
       display: grid;
-      grid-template-columns: 230px minmax(0, 1fr);
+      grid-template-columns: 240px minmax(0, 1fr);
       gap: 16px;
       align-items: start;
     }
@@ -69,6 +105,7 @@
       background: #fff;
       color: var(--ink);
       border: 1px solid var(--line);
+      min-height: 42px;
     }
     .side-menu button.active {
       background: var(--blue);
@@ -81,7 +118,8 @@
     .dash-card { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 14px; }
     .dash-card strong { display: block; font-size: 26px; margin-bottom: 4px; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 11px; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; min-width: 1040px; border-collapse: collapse; font-size: 14px; background: #fff; }
     th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     th { font-size: 12px; color: #617086; }
     .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
@@ -93,10 +131,14 @@
     .hidden { display: none !important; }
     @media (max-width: 860px) {
       .admin-shell { grid-template-columns: 1fr; }
-      .mobile-menu-btn { display: inline-flex; align-items: center; width: max-content; margin-bottom: 10px; }
+      .mobile-menu-btn { display: inline-flex; align-items: center; width: max-content; margin-bottom: 0; }
       .side-menu { position: static; display: none; }
       .side-menu.open { display: grid; }
       .dashboard-grid { grid-template-columns: 1fr 1fr; }
+      .admin-header-inner { min-height: 82px; align-items: flex-start; flex-direction: column; justify-content: center; }
+      .admin-status { white-space: normal; }
+      .controls { display: grid; grid-template-columns: 1fr; }
+      .controls input, .controls button, .controls label.button { width: 100%; }
     }
     @media (max-width: 560px) {
       .dashboard-grid { grid-template-columns: 1fr; }
@@ -104,6 +146,15 @@
   </style>
 </head>
 <body>
+  <header class="admin-header">
+    <div class="admin-header-inner">
+      <div class="admin-brand">
+        <strong>Jixels Admin Panel</strong>
+        <span>ID registration, approval, and verification control</span>
+      </div>
+      <div class="admin-status">Secure admin access</div>
+    </div>
+  </header>
   <main>
     <div class="topbar">
       <h1>Jixels Admin</h1>
@@ -209,12 +260,14 @@
           <label class="button secondary">Restore JSON<input id="restoreInput" type="file" accept="application/json" hidden></label>
         </div>
         <div class="summary" id="summary"></div>
-        <table>
-          <thead>
-            <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="panel tab-panel hidden" data-panel="audit">
@@ -646,5 +699,8 @@
       }
     }
   </script>
+  <footer class="admin-footer">
+    <div class="admin-footer-inner">Jixels Technologies Ltd admin system</div>
+  </footer>
 </body>
 </html>
