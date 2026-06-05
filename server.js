@@ -49,6 +49,8 @@ const sessions = new Map();
 const rateBuckets = new Map();
 const resetCodes = new Map();
 
+const loginRequiredMessage = 'Please log in again as admin.';
+
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -573,7 +575,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/cards' && req.method === 'GET') {
     if (!isAdmin(req)) {
-      sendJson(res, 401, { error: 'Admin PIN required.' });
+      sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
     sendJson(res, 200, { cards: await loadCards() });
@@ -582,7 +584,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/audit' && req.method === 'GET') {
     if (!isAdmin(req)) {
-      sendJson(res, 401, { error: 'Admin PIN required.' });
+      sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
     sendJson(res, 200, { log: await loadAudit() });
@@ -705,7 +707,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname.startsWith('/api/cards/') && req.method === 'PUT') {
     if (!isAdmin(req)) {
-      sendJson(res, 401, { error: 'Admin PIN required.' });
+      sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
     try {
@@ -757,7 +759,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname.startsWith('/api/cards/') && url.pathname.endsWith('/status') && req.method === 'PATCH') {
     if (!isAdmin(req)) {
-      sendJson(res, 401, { error: 'Admin PIN required.' });
+      sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
     try {
@@ -793,7 +795,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname.startsWith('/api/cards/') && req.method === 'DELETE') {
     if (!isAdmin(req)) {
-      sendJson(res, 401, { error: 'Admin PIN required.' });
+      sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
     const id = decodeURIComponent(url.pathname.replace('/api/cards/', ''));

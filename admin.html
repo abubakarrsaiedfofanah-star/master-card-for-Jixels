@@ -49,8 +49,37 @@
     }
     .link-button { background: transparent; border: 0; color: var(--blue); padding: 0; font-weight: 800; text-align: left; }
     .reset-box { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
-    .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
-    .wide { grid-column: 1 / -1; }
+    .admin-shell {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .mobile-menu-btn { display: none; }
+    .side-menu {
+      position: sticky;
+      top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+    .side-menu h2 { margin-bottom: 4px; }
+    .side-menu button {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .side-menu button.active {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .admin-content { display: grid; gap: 16px; }
+    .tab-panel { display: grid; gap: 16px; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .dash-card { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 14px; }
+    .dash-card strong { display: block; font-size: 26px; margin-bottom: 4px; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 11px; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -62,7 +91,16 @@
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
     .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
     .hidden { display: none !important; }
-    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; display: grid; } }
+    @media (max-width: 860px) {
+      .admin-shell { grid-template-columns: 1fr; }
+      .mobile-menu-btn { display: inline-flex; align-items: center; width: max-content; margin-bottom: 10px; }
+      .side-menu { position: static; display: none; }
+      .side-menu.open { display: grid; }
+      .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -72,7 +110,7 @@
       <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
         <div class="password-wrap">
-          <input id="pin" type="password" placeholder="Admin PIN">
+          <input id="pin" type="password" placeholder="Password">
           <button type="button" class="toggle-password" data-target="pin" aria-label="Show admin PIN">Eye</button>
         </div>
         <button id="loginBtn" type="button">Login</button>
@@ -90,8 +128,25 @@
       </div>
     </div>
 
-    <section id="adminArea" class="grid hidden">
-      <form class="panel" id="editForm">
+    <section id="adminArea" class="admin-shell hidden">
+      <button class="mobile-menu-btn secondary" type="button" id="menuBtn">Menu</button>
+      <aside class="panel side-menu" id="sideMenu">
+        <h2>Dashboard</h2>
+        <button type="button" class="active" data-tab="dashboard">Dashboard</button>
+        <button type="button" data-tab="registrations">Registrations</button>
+        <button type="button" data-tab="edit">Edit Card</button>
+        <button type="button" data-tab="create">Create Card</button>
+        <button type="button" data-tab="settings">Admin Settings</button>
+        <button type="button" data-tab="audit">Audit</button>
+      </aside>
+
+      <div class="admin-content">
+      <section class="panel tab-panel" data-panel="dashboard">
+        <h2>Dashboard</h2>
+        <div class="dashboard-grid" id="dashboardSummary"></div>
+      </section>
+
+      <form class="panel tab-panel hidden" id="editForm" data-panel="edit">
         <h2>Edit Card</h2>
         <label>ID No.<input id="editId" disabled></label>
         <label>Name<input id="editName" required></label>
@@ -117,7 +172,7 @@
         </div>
       </form>
 
-      <form class="panel" id="createForm">
+      <form class="panel tab-panel hidden" id="createForm" data-panel="create">
         <h2>Create Card Manually</h2>
         <label>Name<input id="createName" required></label>
         <label>Location<input id="createLocation" required></label>
@@ -129,7 +184,7 @@
         <button type="submit">Create Pending Card</button>
       </form>
 
-      <form class="panel" id="passwordForm">
+      <form class="panel tab-panel hidden" id="passwordForm" data-panel="settings">
         <h2>Change Admin Login</h2>
         <label>Username<input id="newUser" value="admin" required></label>
         <label>Admin email<input id="newEmail" type="email" placeholder="admin@example.com" required></label>
@@ -142,7 +197,7 @@
         <button type="submit">Change Password</button>
       </form>
 
-      <div class="panel wide">
+      <div class="panel tab-panel hidden" data-panel="registrations">
         <h2>Registrations</h2>
         <div class="controls">
           <input id="search" placeholder="Search or type pending">
@@ -152,16 +207,23 @@
           <button type="button" id="exportBtn">Export CSV</button>
           <button type="button" id="backupBtn">Backup JSON</button>
           <label class="button secondary">Restore JSON<input id="restoreInput" type="file" accept="application/json" hidden></label>
-          <button type="button" class="secondary" id="auditBtn">Show Audit</button>
         </div>
         <div class="summary" id="summary"></div>
-        <pre class="audit hidden" id="auditBox"></pre>
         <table>
           <thead>
             <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
           </thead>
           <tbody id="rows"></tbody>
         </table>
+      </div>
+
+      <div class="panel tab-panel hidden" data-panel="audit">
+        <h2>Audit</h2>
+        <div class="controls">
+          <button type="button" class="secondary" id="auditBtn">Refresh Audit</button>
+        </div>
+        <pre class="audit" id="auditBox"></pre>
+      </div>
       </div>
     </section>
   </main>
@@ -227,7 +289,11 @@
       backupBtn: document.getElementById('backupBtn'),
       restoreInput: document.getElementById('restoreInput'),
       auditBtn: document.getElementById('auditBtn'),
-      auditBox: document.getElementById('auditBox')
+      auditBox: document.getElementById('auditBox'),
+      dashboardSummary: document.getElementById('dashboardSummary'),
+      menuBtn: document.getElementById('menuBtn'),
+      sideMenu: document.getElementById('sideMenu'),
+      loginPanel: document.querySelector('.topbar')
     };
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
@@ -279,6 +345,19 @@
       els.summary.innerHTML = statuses
         .map((status) => `<span>${status}: ${counts[status] || 0}</span>`)
         .join('') || '<span>No records</span>';
+      els.dashboardSummary.innerHTML = statuses
+        .map((status) => `<div class="dash-card"><strong>${counts[status] || 0}</strong>${status}</div>`)
+        .join('');
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('[data-panel]').forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.panel !== tab);
+      });
+      document.querySelectorAll('[data-tab]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.tab === tab);
+      });
+      els.sideMenu.classList.remove('open');
     }
 
     function render() {
@@ -414,7 +493,6 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load audit.');
       els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
-      els.auditBox.classList.toggle('hidden');
     }
 
     async function changePassword() {
@@ -465,8 +543,19 @@
         await loadCards();
         startAutoRefresh();
         els.adminArea.classList.remove('hidden');
+        els.loginPanel.classList.add('hidden');
+        showTab('dashboard');
       } catch (error) {
         alert(friendlyError(error));
+      }
+    });
+    els.menuBtn.addEventListener('click', () => els.sideMenu.classList.toggle('open'));
+    els.sideMenu.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-tab]');
+      if (!button) return;
+      showTab(button.dataset.tab);
+      if (button.dataset.tab === 'audit') {
+        showAudit().catch((error) => alert(friendlyError(error)));
       }
     });
     els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
@@ -504,6 +593,7 @@
           Object.assign(card, await setStatus(card.id, 'Inactive', reason));
         }
         if (button.dataset.action === 'edit') startEdit(card);
+        if (button.dataset.action === 'edit') showTab('edit');
         render();
       } catch (error) {
         alert(friendlyError(error));
@@ -548,6 +638,8 @@
         loadCards().then(() => {
           startAutoRefresh();
           els.adminArea.classList.remove('hidden');
+          els.loginPanel.classList.add('hidden');
+          showTab('dashboard');
         }).catch(() => els.loginBtn.click());
       } else {
         els.loginBtn.click();

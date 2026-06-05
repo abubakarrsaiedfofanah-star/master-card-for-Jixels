@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jixels Electronic ID Cards</title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace(`https://master-card-for-jixels.onrender.com/${window.location.search || ''}${window.location.hash || ''}`);
+    }
+  </script>
   <style>
     :root {
       --blue: #4b9bda;
