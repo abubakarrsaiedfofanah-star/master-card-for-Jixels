@@ -473,6 +473,18 @@
       .id-card { box-shadow: none; page-break-inside: avoid; }
     }
   </style>
+  <script>
+    if (new URLSearchParams(window.location.search).has('master')) {
+      document.documentElement.classList.add('registration-only');
+    }
+  </script>
+  <style>
+    .registration-only .topbar,
+    .registration-only .cards-row,
+    .registration-only .records {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
   <main class="app">
@@ -1043,7 +1055,7 @@
       const data = await response.json();
       if (data.url) {
         masterRegistrationUrl = data.url;
-        if (!state.currentRecord || !state.currentRecord.id) els.qrImage.src = qrUrl(masterRegistrationUrl);
+        if (!state.currentRecord || state.currentRecord.isMaster || !state.currentRecord.id) els.qrImage.src = qrUrl(masterRegistrationUrl);
       }
     }
 
