@@ -581,6 +581,10 @@
             <input id="phone" inputmode="tel" autocomplete="tel" required placeholder="Enter phone number">
           </label>
           <label>
+            Email address
+            <input id="email" type="email" autocomplete="email" required placeholder="Enter email address">
+          </label>
+          <label>
             Position
             <input id="position" required placeholder="Enter position">
           </label>
@@ -701,6 +705,7 @@
       branch: document.getElementById('branch'),
       nationalId: document.getElementById('nationalId'),
       phone: document.getElementById('phone'),
+      email: document.getElementById('email'),
       position: document.getElementById('position'),
       statusField: document.getElementById('statusField'),
       status: document.getElementById('status'),
@@ -1146,6 +1151,7 @@
           branch: els.branch.value.trim(),
           nationalId: els.nationalId.value.trim(),
           phone: els.phone.value.trim(),
+          email: els.email.value.trim(),
           position: els.position.value.trim(),
           status: state.adminPin ? els.status.value : 'Pending',
           photo

@@ -131,6 +131,7 @@ function fromSupabaseCard(row) {
     branch: row.branch,
     nationalId: row.national_id,
     phone: row.phone,
+    email: row.email || '',
     position: row.position,
     photo: row.photo,
     verificationToken: row.verification_token,
@@ -151,6 +152,7 @@ function toSupabaseCard(card) {
     branch: card.branch,
     national_id: card.nationalId,
     phone: card.phone,
+    email: card.email || '',
     position: card.position,
     photo: card.photo,
     verification_token: card.verificationToken,
@@ -281,15 +283,15 @@ function saveAdminConfig(config) {
   fs.writeFileSync(adminConfigPath, JSON.stringify(config, null, 2));
 }
 
-function sendResetEmail(to, code) {
+function sendEmail(to, subject, text) {
   if (!resendApiKey) {
-    return Promise.reject(new Error('Password reset email is not configured. Add RESEND_API_KEY and RESET_FROM_EMAIL on Render.'));
+    return Promise.reject(new Error('Email is not configured. Add RESEND_API_KEY and RESET_FROM_EMAIL on Render.'));
   }
   const payload = JSON.stringify({
     from: resetFromEmail,
     to: [to],
-    subject: 'Jixels admin password reset code',
-    text: `Your Jixels admin password reset code is ${code}. It expires in 10 minutes.`
+    subject,
+    text
   });
   return new Promise((resolve, reject) => {
     const req = https.request('https://api.resend.com/emails', {
@@ -314,6 +316,30 @@ function sendResetEmail(to, code) {
     req.write(payload);
     req.end();
   });
+}
+
+function sendResetEmail(to, code) {
+  return sendEmail(
+    to,
+    'Jixels admin password reset code',
+    `Your Jixels admin password reset code is ${code}. It expires in 10 minutes.`
+  );
+}
+
+function workerClaimUrl(req, token) {
+  const url = new URL('/', appBaseUrl(req));
+  url.searchParams.set('claim', token);
+  return url.href;
+}
+
+function sendWorkerApprovalEmail(req, card) {
+  if (!card.email) return Promise.resolve(false);
+  const link = workerClaimUrl(req, card.verificationToken);
+  return sendEmail(
+    card.email,
+    'Your Jixels ID card is ready',
+    `Hello ${card.name},\n\nYour Jixels ID card has been approved and is ready.\n\nOpen this link to view, print, or download your ID card:\n${link}\n\nJixels Technologies Ltd`
+  ).then(() => true);
 }
 
 function loadMasterConfig() {
@@ -659,6 +685,7 @@ async function handleApi(req, res, url) {
         branch: String(payload.branch || '').trim(),
         nationalId: String(payload.nationalId || '').trim(),
         phone: String(payload.phone || '').trim(),
+        email: String(payload.email || '').trim().toLowerCase(),
         position: String(payload.position || '').trim(),
         photo: String(payload.photo || ''),
         inactiveReason: '',
@@ -671,13 +698,21 @@ async function handleApi(req, res, url) {
         return true;
       }
 
-      if (!card.name || !card.location || !card.branch || !card.nationalId || !card.phone || !card.position || !card.photo) {
+      if (!card.name || !card.location || !card.branch || !card.nationalId || !card.phone || !card.email || !card.position || !card.photo) {
         sendJson(res, 400, { error: 'All fields are required.' });
+        return true;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(card.email)) {
+        sendJson(res, 400, { error: 'Enter a valid email address.' });
         return true;
       }
 
       if (cards.some((item) => String(item.phone || '').trim() === card.phone)) {
         sendJson(res, 409, { error: 'This phone number is already registered.' });
+        return true;
+      }
+      if (cards.some((item) => String(item.email || '').trim().toLowerCase() === card.email)) {
+        sendJson(res, 409, { error: 'This email address is already registered.' });
         return true;
       }
       if (cards.some((item) => String(item.nationalId || '').trim() === card.nationalId)) {
@@ -727,6 +762,7 @@ async function handleApi(req, res, url) {
         branch: String(payload.branch || '').trim(),
         nationalId: String(payload.nationalId || '').trim(),
         phone: String(payload.phone || '').trim(),
+        email: String(payload.email || '').trim().toLowerCase(),
         position: String(payload.position || '').trim(),
         status: String(payload.status || cards[index].status || 'Pending').trim() || 'Pending',
         inactiveReason: String(payload.inactiveReason || cards[index].inactiveReason || '').trim(),
@@ -734,8 +770,12 @@ async function handleApi(req, res, url) {
         updatedAt: new Date().toISOString()
       };
 
-      if (!cards[index].name || !cards[index].location || !cards[index].branch || !cards[index].nationalId || !cards[index].phone || !cards[index].position || !cards[index].photo) {
-        sendJson(res, 400, { error: 'Name, location, branch, National ID, phone, position, and picture are required.' });
+      if (!cards[index].name || !cards[index].location || !cards[index].branch || !cards[index].nationalId || !cards[index].phone || !cards[index].email || !cards[index].position || !cards[index].photo) {
+        sendJson(res, 400, { error: 'Name, location, branch, National ID, phone, email, position, and picture are required.' });
+        return true;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cards[index].email)) {
+        sendJson(res, 400, { error: 'Enter a valid email address.' });
         return true;
       }
 
@@ -745,6 +785,10 @@ async function handleApi(req, res, url) {
       }
       if (cards.some((item, itemIndex) => itemIndex !== index && String(item.nationalId || '').trim() === cards[index].nationalId)) {
         sendJson(res, 409, { error: 'This National ID is already registered.' });
+        return true;
+      }
+      if (cards.some((item, itemIndex) => itemIndex !== index && String(item.email || '').trim().toLowerCase() === cards[index].email)) {
+        sendJson(res, 409, { error: 'This email address is already registered.' });
         return true;
       }
 
@@ -776,6 +820,7 @@ async function handleApi(req, res, url) {
         sendJson(res, 404, { error: 'Card not found.' });
         return true;
       }
+      const wasApproved = (card.status || 'Pending') === 'Approved';
       card.status = status;
       card.inactiveReason = status === 'Inactive' ? String(payload.inactiveReason || payload.reason || card.inactiveReason || 'This worker is no longer active.').trim() : '';
       if (status === 'Approved') {
@@ -785,8 +830,19 @@ async function handleApi(req, res, url) {
       }
       card.updatedAt = new Date().toISOString();
       await saveCards(cards);
+      let emailSent = false;
+      let emailError = '';
+      if (status === 'Approved' && !wasApproved) {
+        try {
+          emailSent = await sendWorkerApprovalEmail(req, card);
+          if (emailSent) await appendAudit('worker-email-sent', card, currentAdmin(req)?.username || 'admin');
+        } catch (error) {
+          emailError = error.message || 'Unable to send worker email.';
+          await appendAudit('worker-email-failed', card, currentAdmin(req)?.username || 'admin');
+        }
+      }
       await appendAudit(`status:${status}`, card, req.headers['x-admin-user'] || 'admin');
-      sendJson(res, 200, { card });
+      sendJson(res, 200, { card, emailSent, emailError });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Invalid request.' });
     }

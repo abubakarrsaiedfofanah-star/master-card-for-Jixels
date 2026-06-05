@@ -326,6 +326,7 @@
         <label>Branch<input id="editBranch" required></label>
         <label>National ID<input id="editNationalId" required></label>
         <label>Phone<input id="editPhone" required></label>
+        <label>Email<input id="editEmail" type="email" required></label>
         <label>Position<input id="editPosition" required></label>
         <label>Inactive reason<input id="editInactiveReason" placeholder="Example: Left company"></label>
         <label>Status
@@ -351,6 +352,7 @@
         <label>Branch<input id="createBranch" required></label>
         <label>National ID<input id="createNationalId" required></label>
         <label>Phone<input id="createPhone" required></label>
+        <label>Email<input id="createEmail" type="email" required></label>
         <label>Position<input id="createPosition" required></label>
         <label>Picture<input id="createPhoto" type="file" accept="image/*" required></label>
         <button type="submit">Create Pending Card</button>
@@ -384,7 +386,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
+              <tr><th>Photo</th><th>ID</th><th>Name</th><th>National ID</th><th>Location</th><th>Branch</th><th>Phone</th><th>Email</th><th>Position</th><th>Status</th><th>Validity</th><th>Action</th></tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
@@ -492,6 +494,7 @@
       editBranch: document.getElementById('editBranch'),
       editNationalId: document.getElementById('editNationalId'),
       editPhone: document.getElementById('editPhone'),
+      editEmail: document.getElementById('editEmail'),
       editPosition: document.getElementById('editPosition'),
       editInactiveReason: document.getElementById('editInactiveReason'),
       editStatus: document.getElementById('editStatus'),
@@ -502,6 +505,7 @@
       createBranch: document.getElementById('createBranch'),
       createNationalId: document.getElementById('createNationalId'),
       createPhone: document.getElementById('createPhone'),
+      createEmail: document.getElementById('createEmail'),
       createPosition: document.getElementById('createPosition'),
       createPhoto: document.getElementById('createPhoto'),
       passwordForm: document.getElementById('passwordForm'),
@@ -588,7 +592,7 @@
       const q = els.search.value.trim().toLowerCase();
       const branch = els.branchFilter.value.trim().toLowerCase();
       return state.records.filter((r) => {
-        const matchesSearch = !q || [r.id, r.name, r.nationalId, r.location, r.branch, r.phone, r.position, r.status]
+        const matchesSearch = !q || [r.id, r.name, r.nationalId, r.location, r.branch, r.phone, r.email, r.position, r.status]
           .some((v) => String(v || '').toLowerCase().includes(q));
         const matchesBranch = !branch || String(r.branch || '').toLowerCase().includes(branch);
         return matchesSearch && matchesBranch;
@@ -645,7 +649,7 @@
       const records = filtered();
       els.rows.innerHTML = records.length ? records.map((r) => `
         <tr>
-          <td>${r.photo ? `<img class="thumb" data-photo="${r.id}" src="${r.photo}" alt="">` : ''}</td><td>${r.id}</td><td>${r.name}</td><td>${r.nationalId || ''}</td><td>${r.location || ''}</td><td>${r.branch || ''}</td><td>${r.phone || ''}</td><td>${r.position}</td><td>${r.status || 'Pending'}</td><td>${(r.status || 'Pending') === 'Approved' ? 'Valid' : 'Not valid'}</td>
+          <td>${r.photo ? `<img class="thumb" data-photo="${r.id}" src="${r.photo}" alt="">` : ''}</td><td>${r.id}</td><td>${r.name}</td><td>${r.nationalId || ''}</td><td>${r.location || ''}</td><td>${r.branch || ''}</td><td>${r.phone || ''}</td><td>${r.email || ''}</td><td>${r.position}</td><td>${r.status || 'Pending'}</td><td>${(r.status || 'Pending') === 'Approved' ? 'Valid' : 'Not valid'}</td>
           <td>
             ${(r.status || 'Pending') === 'Approved' ? `<button data-action="view" data-id="${r.id}">View Card</button>` : ''}
             ${(r.status || 'Pending') === 'Approved' ? `<button data-action="notify" data-id="${r.id}">Notify</button>` : ''}
@@ -654,7 +658,7 @@
             <button data-action="inactive" data-id="${r.id}">Inactive</button>
             <button data-action="edit" data-id="${r.id}">Edit</button>
           </td>
-        </tr>`).join('') : '<tr><td colspan="11">No records found.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="12">No records found.</td></tr>';
     }
 
     function showCard(card) {
@@ -714,7 +718,7 @@
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to update status.');
-      return data.card;
+      return data;
     }
 
     function startEdit(card) {
@@ -725,6 +729,7 @@
       els.editBranch.value = card.branch || '';
       els.editNationalId.value = card.nationalId || '';
       els.editPhone.value = card.phone || '';
+      els.editEmail.value = card.email || '';
       els.editPosition.value = card.position || '';
       els.editInactiveReason.value = card.inactiveReason || '';
       els.editStatus.value = card.status || 'Pending';
@@ -737,6 +742,7 @@
         branch: els.editBranch.value.trim(),
         nationalId: els.editNationalId.value.trim(),
         phone: els.editPhone.value.trim(),
+        email: els.editEmail.value.trim(),
         position: els.editPosition.value.trim(),
         status: els.editStatus.value,
         inactiveReason: els.editInactiveReason.value.trim()
@@ -770,6 +776,7 @@
         branch: els.createBranch.value.trim(),
         nationalId: els.createNationalId.value.trim(),
         phone: els.createPhone.value.trim(),
+        email: els.createEmail.value.trim(),
         position: els.createPosition.value.trim(),
         photo: file ? await readFileAsDataUrl(file) : ''
       };
@@ -786,8 +793,8 @@
     }
 
     function exportCsv() {
-      const rows = [['ID', 'Name', 'National ID', 'Location', 'Branch', 'Phone', 'Position', 'Status', 'Approved By', 'Approved At', 'Created At']];
-      state.records.forEach((r) => rows.push([r.id, r.name, r.nationalId || '', r.location || '', r.branch || '', r.phone || '', r.position, r.status || 'Pending', r.approvedBy || '', r.approvedAt || '', r.createdAt || '']));
+      const rows = [['ID', 'Name', 'National ID', 'Location', 'Branch', 'Phone', 'Email', 'Position', 'Status', 'Approved By', 'Approved At', 'Created At']];
+      state.records.forEach((r) => rows.push([r.id, r.name, r.nationalId || '', r.location || '', r.branch || '', r.phone || '', r.email || '', r.position, r.status || 'Pending', r.approvedBy || '', r.approvedAt || '', r.createdAt || '']));
       const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -917,13 +924,19 @@
       if (!card) return;
       try {
         if (button.dataset.action === 'approve') {
-          Object.assign(card, await setStatus(card.id, 'Approved'));
+          const result = await setStatus(card.id, 'Approved');
+          Object.assign(card, result.card);
           showCard(card);
+          if (result.emailSent) {
+            alert('Worker approved. Email notification sent.');
+          } else if (card.email && result.emailError) {
+            alert(`Worker approved, but email was not sent: ${result.emailError}`);
+          }
         }
-        if (button.dataset.action === 'reject') Object.assign(card, await setStatus(card.id, 'Rejected'));
+        if (button.dataset.action === 'reject') Object.assign(card, (await setStatus(card.id, 'Rejected')).card);
         if (button.dataset.action === 'inactive') {
           const reason = prompt('Reason for marking this worker inactive?', card.inactiveReason || 'Left company') || 'This worker is no longer active.';
-          Object.assign(card, await setStatus(card.id, 'Inactive', reason));
+          Object.assign(card, (await setStatus(card.id, 'Inactive', reason)).card);
         }
         if (button.dataset.action === 'edit') startEdit(card);
         if (button.dataset.action === 'edit') showTab('edit');
