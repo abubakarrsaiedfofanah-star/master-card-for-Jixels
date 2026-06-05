@@ -136,6 +136,76 @@
     .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .72); display: grid; place-items: center; padding: 20px; z-index: 20; }
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
     .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+    .card-stage {
+      display: grid;
+      grid-template-columns: repeat(2, 330px);
+      gap: 20px;
+      justify-content: center;
+      align-items: start;
+      overflow-x: auto;
+      padding: 6px 0 12px;
+    }
+    .id-card {
+      width: 330px;
+      height: 520px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(31, 47, 68, .13);
+    }
+    .logo-front { position: absolute; top: 20px; left: 40px; width: 250px; height: 124px; object-fit: contain; }
+    .front-shape {
+      position: absolute;
+      left: 24px;
+      top: 328px;
+      width: 282px;
+      height: 130px;
+      background: var(--blue);
+      border-radius: 18px;
+      box-shadow: 0 12px 24px rgba(31, 85, 157, .26);
+    }
+    .front-shape::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 11px;
+      height: 3px;
+      background: #f0c51b;
+      border-radius: 10px;
+    }
+    .photo-ring {
+      position: absolute;
+      left: 79px;
+      top: 148px;
+      width: 172px;
+      height: 172px;
+      border-radius: 50%;
+      border: 5px solid #f0c51b;
+      background: #f8fbff;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .photo-ring img { width: 100%; height: 100%; object-fit: cover; object-position: center top; background: #eef3f8; }
+    .photo-ring span { color: #8ca3be; font-size: 29px; font-weight: 800; }
+    .front-info { position: absolute; left: 44px; right: 44px; top: 345px; text-align: left; z-index: 2; }
+    .detail-line { display: grid; grid-template-columns: 72px 1fr; gap: 7px; align-items: start; padding: 5px 0; border-bottom: 1px solid rgba(255, 255, 255, .18); }
+    .detail-line:last-of-type { border-bottom: 0; }
+    .detail-label { color: rgba(255, 255, 255, .76); font-size: 11px; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
+    .person-name { color: #f0c51b; font-size: 18px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+    .id-number, .person-role { color: #fff; font-size: 14px; font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+    .qr-box { position: absolute; left: 115px; top: 24px; width: 100px; height: 100px; border: 1px solid #d7dfe9; background: #fff; display: grid; place-items: center; padding: 6px; }
+    .qr-box img { width: 100%; height: 100%; }
+    .back-text { position: absolute; left: 35px; right: 32px; top: 136px; font-weight: 700; font-size: 13px; line-height: 1.35; }
+    .back-text .indent { margin-left: 41px; text-align: left; }
+    .responsibility-title { margin: 18px 0 9px; font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .rules { display: grid; gap: 7px; margin: 0; padding-left: 31px; font-size: 12.5px; font-weight: 400; line-height: 1.12; }
+    .rules li { padding-left: 10px; }
+    .logo-back { position: absolute; left: 115px; bottom: 46px; width: 100px; height: 52px; object-fit: contain; }
     .hidden { display: none !important; }
     @media (max-width: 860px) {
       .admin-shell { grid-template-columns: 1fr; }
@@ -148,11 +218,23 @@
       .admin-status { white-space: normal; }
       .controls { display: grid; grid-template-columns: 1fr; }
       .controls input, .controls button, .controls label.button { width: 100%; }
+      .card-stage { grid-template-columns: 330px; justify-content: start; }
     }
     @media (max-width: 560px) {
       .dashboard-grid { grid-template-columns: 1fr; }
     }
+    @media print {
+      body { background: #fff; display: block; }
+      .admin-header, .admin-footer, .topbar, .side-menu, .mobile-menu-btn, .tab-panel:not([data-panel="card"]) { display: none !important; }
+      main { width: auto; padding: 0; }
+      .admin-shell, .admin-content { display: block; }
+      [data-panel="card"] { border: 0; padding: 0; }
+      [data-panel="card"] h2, [data-panel="card"] .controls, #cardEmpty { display: none !important; }
+      .card-stage { display: flex; gap: 18px; justify-content: center; overflow: visible; padding: 0; }
+      .id-card { box-shadow: none; page-break-inside: avoid; }
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <header class="admin-header">
@@ -197,6 +279,7 @@
         <h2>Dashboard</h2>
         <button type="button" class="active" data-tab="dashboard">Dashboard</button>
         <button type="button" data-tab="registrations">Registrations</button>
+        <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
         <button type="button" data-tab="settings">Admin Settings</button>
@@ -282,6 +365,45 @@
         </div>
       </div>
 
+      <div class="panel tab-panel hidden" data-panel="card">
+        <h2>Approved ID Card</h2>
+        <div class="controls">
+          <button type="button" id="printCardBtn">Print Card</button>
+          <button type="button" class="secondary" id="downloadCardBtn">Download PNG</button>
+        </div>
+        <p id="cardEmpty">Approve a worker or click View Card on an approved record to show the ID card here.</p>
+        <div class="card-stage hidden" id="cardStage">
+          <article class="id-card">
+            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+            <div class="front-shape"></div>
+            <div class="photo-ring"><span id="cardPhotoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
+            <div class="front-info">
+              <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name" id="cardName"></span></div>
+              <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="cardPrintedId">29352273</span></div>
+              <div class="detail-line"><span class="detail-label">Position:</span><span class="person-role" id="cardPosition"></span></div>
+            </div>
+          </article>
+
+          <article class="id-card">
+            <div class="qr-box"><img id="cardQr" crossorigin="anonymous" alt="Worker verification QR"></div>
+            <div class="back-text">
+              <div>If found please return to:</div>
+              <div class="indent">Jixels Technologies Ltd</div>
+              <div class="indent">P.O BOX 480-50101 Butere.</div>
+              <div class="indent">Phone:+254 713 111 666</div>
+              <div class="responsibility-title">Cardholder Responsibilities:</div>
+              <ol class="rules">
+                <li>This ID card is the property of Jixels Technologies Ltd.</li>
+                <li>Use of this card is strictly for the person to whom it is issued.</li>
+                <li>Must be displayed at all times while on company premises.</li>
+                <li>Report lost/stolen cards immediately to HR.</li>
+              </ol>
+            </div>
+            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+          </article>
+        </div>
+      </div>
+
       <div class="panel tab-panel hidden" data-panel="audit">
         <h2>Audit</h2>
         <div class="controls">
@@ -300,6 +422,7 @@
       token: sessionStorage.getItem('jixelsAdminToken') || '',
       records: [],
       editingId: '',
+      currentCard: null,
       refreshTimer: null
     };
 
@@ -360,9 +483,27 @@
       sideMenu: document.getElementById('sideMenu'),
       loginPanel: document.querySelector('.topbar'),
       logoutBtn: document.getElementById('logoutBtn')
+      ,
+      cardEmpty: document.getElementById('cardEmpty'),
+      cardStage: document.getElementById('cardStage'),
+      cardPhoto: document.getElementById('cardPhoto'),
+      cardPhotoPlaceholder: document.getElementById('cardPhotoPlaceholder'),
+      cardName: document.getElementById('cardName'),
+      cardPosition: document.getElementById('cardPosition'),
+      cardQr: document.getElementById('cardQr'),
+      printCardBtn: document.getElementById('printCardBtn'),
+      downloadCardBtn: document.getElementById('downloadCardBtn')
     };
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
+
+    function qrUrl(data) {
+      return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(data)}`;
+    }
+
+    function verificationUrl(token) {
+      return `${window.location.origin}/?token=${encodeURIComponent(token)}`;
+    }
 
     async function login() {
       const response = await fetch('/api/login', {
@@ -438,6 +579,7 @@
       state.pin = '';
       state.records = [];
       state.editingId = '';
+      state.currentCard = null;
       if (state.refreshTimer) clearInterval(state.refreshTimer);
       state.refreshTimer = null;
       sessionStorage.removeItem('jixelsAdminToken');
@@ -455,12 +597,52 @@
         <tr>
           <td>${r.photo ? `<img class="thumb" data-photo="${r.id}" src="${r.photo}" alt="">` : ''}</td><td>${r.id}</td><td>${r.name}</td><td>${r.nationalId || ''}</td><td>${r.location || ''}</td><td>${r.branch || ''}</td><td>${r.phone || ''}</td><td>${r.position}</td><td>${r.status || 'Pending'}</td><td>${(r.status || 'Pending') === 'Approved' ? 'Valid' : 'Not valid'}</td>
           <td>
+            ${(r.status || 'Pending') === 'Approved' ? `<button data-action="view" data-id="${r.id}">View Card</button>` : ''}
             <button data-action="approve" data-id="${r.id}">Approve</button>
             <button data-action="reject" data-id="${r.id}">Reject</button>
             <button data-action="inactive" data-id="${r.id}">Inactive</button>
             <button data-action="edit" data-id="${r.id}">Edit</button>
           </td>
         </tr>`).join('') : '<tr><td colspan="11">No records found.</td></tr>';
+    }
+
+    function showCard(card) {
+      if (!card || (card.status || 'Pending') !== 'Approved') {
+        alert('Approve this worker first before generating the ID card.');
+        return;
+      }
+      state.currentCard = card;
+      els.cardEmpty.classList.add('hidden');
+      els.cardStage.classList.remove('hidden');
+      els.cardName.textContent = card.name || '';
+      els.cardPosition.textContent = card.position || '';
+      if (card.photo) {
+        els.cardPhoto.src = card.photo;
+        els.cardPhoto.classList.remove('hidden');
+        els.cardPhotoPlaceholder.classList.add('hidden');
+      } else {
+        els.cardPhoto.removeAttribute('src');
+        els.cardPhoto.classList.add('hidden');
+        els.cardPhotoPlaceholder.classList.remove('hidden');
+      }
+      els.cardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
+      showTab('card');
+    }
+
+    async function downloadCurrentCard() {
+      if (!state.currentCard) {
+        alert('Select an approved worker card first.');
+        return;
+      }
+      if (!window.html2canvas) {
+        alert('Download library is not available. Please try again.');
+        return;
+      }
+      const canvas = await html2canvas(els.cardStage, { backgroundColor: '#eef2f6', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${state.currentCard.id || 'jixels-id-card'}.png`;
+      link.click();
     }
 
     async function setStatus(id, status, inactiveReason = '') {
@@ -673,7 +855,10 @@
       const card = state.records.find((r) => r.id === button.dataset.id);
       if (!card) return;
       try {
-        if (button.dataset.action === 'approve') Object.assign(card, await setStatus(card.id, 'Approved'));
+        if (button.dataset.action === 'approve') {
+          Object.assign(card, await setStatus(card.id, 'Approved'));
+          showCard(card);
+        }
         if (button.dataset.action === 'reject') Object.assign(card, await setStatus(card.id, 'Rejected'));
         if (button.dataset.action === 'inactive') {
           const reason = prompt('Reason for marking this worker inactive?', card.inactiveReason || 'Left company') || 'This worker is no longer active.';
@@ -681,6 +866,7 @@
         }
         if (button.dataset.action === 'edit') startEdit(card);
         if (button.dataset.action === 'edit') showTab('edit');
+        if (button.dataset.action === 'view') showCard(card);
         render();
       } catch (error) {
         alert(friendlyError(error));
@@ -714,6 +900,14 @@
       }
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
+    els.printCardBtn.addEventListener('click', () => {
+      if (!state.currentCard) {
+        alert('Select an approved worker card first.');
+        return;
+      }
+      window.print();
+    });
+    els.downloadCardBtn.addEventListener('click', () => downloadCurrentCard().catch((error) => alert(friendlyError(error))));
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && state.token) loadCards().catch((error) => console.warn(error.message));
     });
