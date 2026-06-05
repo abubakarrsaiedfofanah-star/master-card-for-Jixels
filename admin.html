@@ -15,7 +15,7 @@
     body { margin: 0; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
     main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 44px; }
     .topbar, .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-    .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .topbar { width: min(420px, 100%); margin: 0 auto 16px; display: grid; gap: 14px; }
     h1, h2 { margin: 0; }
     h1 { font-size: 24px; }
     h2 { font-size: 18px; margin-bottom: 12px; }
@@ -23,6 +23,10 @@
     button, a.button { border: 0; border-radius: 6px; padding: 10px 12px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
     button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .login-form { display: grid; gap: 10px; }
+    .login-form input, .login-form button { width: 100%; }
+    .link-button { background: transparent; border: 0; color: var(--blue); padding: 0; font-weight: 800; text-align: left; }
+    .reset-box { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
     .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
     .wide { grid-column: 1 / -1; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 11px; }
@@ -36,18 +40,25 @@
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
     .audit { max-height: 220px; overflow: auto; font-size: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
     .hidden { display: none !important; }
-    @media (max-width: 860px) { .grid, .topbar { grid-template-columns: 1fr; display: grid; } }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; display: grid; } }
   </style>
 </head>
 <body>
-loo  <main>
+  <main>
     <div class="topbar">
       <h1>Jixels Admin</h1>
-      <div class="controls">
+      <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
         <input id="pin" type="password" placeholder="Admin PIN">
         <button id="loginBtn" type="button">Login</button>
-        <a class="button secondary" href="/">Registration Page</a>wait 
+        <button id="forgotToggleBtn" class="link-button" type="button">Forgot password?</button>
+        <div class="reset-box hidden" id="resetBox">
+          <input id="resetEmail" type="email" placeholder="Registered admin email">
+          <button id="sendResetBtn" type="button" class="secondary">Send Verification Code</button>
+          <input id="resetCode" inputmode="numeric" placeholder="Verification code">
+          <input id="resetPassword" type="password" placeholder="New password">
+          <button id="resetPasswordBtn" type="button">Reset Password</button>
+        </div>
       </div>
     </div>
 
@@ -93,6 +104,7 @@ loo  <main>
       <form class="panel" id="passwordForm">
         <h2>Change Admin Login</h2>
         <label>Username<input id="newUser" value="admin" required></label>
+        <label>Admin email<input id="newEmail" type="email" placeholder="admin@example.com" required></label>
         <label>New Password<input id="newPassword" type="password" required></label>
         <button type="submit">Change Password</button>
       </form>
@@ -121,7 +133,7 @@ loo  <main>
     </section>
   </main>
 
-apply  <script>
+  <script>
     const state = {
       user: sessionStorage.getItem('jixelsAdminUser') || 'admin',
       pin: sessionStorage.getItem('jixelsAdminPin') || '',
@@ -134,6 +146,13 @@ apply  <script>
       user: document.getElementById('user'),
       pin: document.getElementById('pin'),
       loginBtn: document.getElementById('loginBtn'),
+      forgotToggleBtn: document.getElementById('forgotToggleBtn'),
+      resetBox: document.getElementById('resetBox'),
+      resetEmail: document.getElementById('resetEmail'),
+      sendResetBtn: document.getElementById('sendResetBtn'),
+      resetCode: document.getElementById('resetCode'),
+      resetPassword: document.getElementById('resetPassword'),
+      resetPasswordBtn: document.getElementById('resetPasswordBtn'),
       adminArea: document.getElementById('adminArea'),
       rows: document.getElementById('rows'),
       search: document.getElementById('search'),
@@ -163,6 +182,7 @@ apply  <script>
       createPhoto: document.getElementById('createPhoto'),
       passwordForm: document.getElementById('passwordForm'),
       newUser: document.getElementById('newUser'),
+      newEmail: document.getElementById('newEmail'),
       newPassword: document.getElementById('newPassword'),
       backupBtn: document.getElementById('backupBtn'),
       restoreInput: document.getElementById('restoreInput'),
@@ -361,11 +381,38 @@ apply  <script>
       const response = await fetch('/api/change-password', {
         method: 'POST',
         headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: els.newUser.value.trim(), password: els.newPassword.value })
+        body: JSON.stringify({ username: els.newUser.value.trim(), email: els.newEmail.value.trim(), password: els.newPassword.value })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to change password.');
       alert('Admin login changed. Please log in again with the new password.');
+    }
+
+    async function sendResetCode() {
+      const response = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: els.resetEmail.value.trim() })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to send reset code.');
+      alert(data.message || 'Reset code sent.');
+    }
+
+    async function resetPassword() {
+      const response = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: els.resetEmail.value.trim(),
+          code: els.resetCode.value.trim(),
+          password: els.resetPassword.value
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to reset password.');
+      alert('Password reset successfully. Please log in with the new password.');
+      els.resetBox.classList.add('hidden');
     }
 
     els.loginBtn.addEventListener('click', async () => {
@@ -382,6 +429,9 @@ apply  <script>
         alert(error.message);
       }
     });
+    els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
+    els.sendResetBtn.addEventListener('click', () => sendResetCode().catch((error) => alert(error.message)));
+    els.resetPasswordBtn.addEventListener('click', () => resetPassword().catch((error) => alert(error.message)));
 
     els.rows.addEventListener('click', async (event) => {
       const image = event.target.closest('img[data-photo]');

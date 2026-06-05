@@ -29,13 +29,17 @@ const adminConfigPath = path.join(root, 'admin-config.json');
 const masterConfigPath = path.join(root, 'master-config.json');
 const adminUser = process.env.ADMIN_USER || 'admin';
 const adminPass = process.env.ADMIN_PASS || '1234';
+const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
 const masterToken = String(process.env.MASTER_TOKEN || '').trim();
 const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
+const resetFromEmail = String(process.env.RESET_FROM_EMAIL || 'Jixels ID Cards <onboarding@resend.dev>').trim();
 const useSupabase = Boolean(supabaseUrl && supabaseServiceRoleKey);
 const sessions = new Map();
 const rateBuckets = new Map();
+const resetCodes = new Map();
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -241,11 +245,19 @@ function hashPassword(password, salt) {
 
 function loadAdminConfig() {
   if (fs.existsSync(adminConfigPath)) {
-    try { return JSON.parse(fs.readFileSync(adminConfigPath, 'utf8')); } catch {}
+    try {
+      const config = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
+      if (!config.email && adminEmail) {
+        config.email = adminEmail;
+        saveAdminConfig(config);
+      }
+      return config;
+    } catch {}
   }
   const salt = crypto.randomBytes(16).toString('hex');
   const config = {
     username: adminUser,
+    email: adminEmail,
     salt,
     passwordHash: hashPassword(adminPass, salt),
     role: 'super-admin',
@@ -257,6 +269,41 @@ function loadAdminConfig() {
 
 function saveAdminConfig(config) {
   fs.writeFileSync(adminConfigPath, JSON.stringify(config, null, 2));
+}
+
+function sendResetEmail(to, code) {
+  if (!resendApiKey) {
+    return Promise.reject(new Error('Password reset email is not configured. Add RESEND_API_KEY and RESET_FROM_EMAIL on Render.'));
+  }
+  const payload = JSON.stringify({
+    from: resetFromEmail,
+    to: [to],
+    subject: 'Jixels admin password reset code',
+    text: `Your Jixels admin password reset code is ${code}. It expires in 10 minutes.`
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(data || 'Unable to send reset email.'));
+          return;
+        }
+        resolve();
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
 }
 
 function loadMasterConfig() {
@@ -431,6 +478,64 @@ async function handleApi(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/forgot-password' && req.method === 'POST') {
+    if (!checkRate(req, 'forgot-password', 5, 15 * 60_000)) {
+      sendJson(res, 429, { error: 'Too many reset attempts. Try again later.' });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const config = loadAdminConfig();
+      const email = String(payload.email || '').trim().toLowerCase();
+      if (!config.email || email !== String(config.email).toLowerCase()) {
+        sendJson(res, 404, { error: 'This email is not registered for admin password reset.' });
+        return true;
+      }
+      const code = String(crypto.randomInt(100000, 1000000));
+      resetCodes.set(email, {
+        codeHash: hashPassword(code, config.salt),
+        expiresAt: Date.now() + 10 * 60 * 1000
+      });
+      await sendResetEmail(email, code);
+      sendJson(res, 200, { ok: true, message: 'Reset code sent to the registered admin email.' });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to send reset code.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/reset-password' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const config = loadAdminConfig();
+      const email = String(payload.email || '').trim().toLowerCase();
+      const reset = resetCodes.get(email);
+      if (!config.email || email !== String(config.email).toLowerCase() || !reset || Date.now() > reset.expiresAt) {
+        sendJson(res, 400, { error: 'Invalid or expired reset code.' });
+        return true;
+      }
+      if (hashPassword(String(payload.code || '').trim(), config.salt) !== reset.codeHash) {
+        sendJson(res, 400, { error: 'Invalid or expired reset code.' });
+        return true;
+      }
+      const password = String(payload.password || '');
+      if (password.length < 10) {
+        sendJson(res, 400, { error: 'Password must be at least 10 characters.' });
+        return true;
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      config.salt = salt;
+      config.passwordHash = hashPassword(password, salt);
+      saveAdminConfig(config);
+      resetCodes.delete(email);
+      await appendAudit('password-reset', { id: config.username }, config.username);
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to reset password.' });
+    }
+    return true;
+  }
+
   if (url.pathname === '/api/change-password' && req.method === 'POST') {
     const admin = currentAdmin(req);
     if (!admin || admin.role !== 'super-admin') {
@@ -442,6 +547,7 @@ async function handleApi(req, res, url) {
       const config = loadAdminConfig();
       const salt = crypto.randomBytes(16).toString('hex');
       config.username = String(payload.username || config.username).trim() || config.username;
+      config.email = String(payload.email || config.email || '').trim().toLowerCase();
       config.salt = salt;
       config.passwordHash = hashPassword(payload.password || '', salt);
       saveAdminConfig(config);
