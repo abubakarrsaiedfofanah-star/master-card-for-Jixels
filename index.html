@@ -606,6 +606,7 @@
   <script>
     const adminPinKey = 'jixelsAdminPin';
     const printedCardId = '29352273';
+    const masterQrImage = 'final-master-registration-qr.png';
     let masterRegistrationUrl = '';
     let masterLinkReady = false;
     const masterToken = new URLSearchParams(window.location.search).get('master') || '';
@@ -705,7 +706,7 @@
       if (!isMasterCard && record.id && record.verificationToken) {
         els.qrImage.src = qrUrl(verificationUrl(record.verificationToken));
       } else if (masterRegistrationUrl) {
-        els.qrImage.src = qrUrl(masterRegistrationUrl);
+        els.qrImage.src = masterQrImage;
       } else {
         els.qrImage.removeAttribute('src');
       }
@@ -733,7 +734,7 @@
         phone: '+254713846393',
         photo: 'james-photo.jpeg'
       });
-      if (masterRegistrationUrl) els.qrImage.src = qrUrl(masterRegistrationUrl);
+      if (masterRegistrationUrl) els.qrImage.src = masterQrImage;
       else els.qrImage.removeAttribute('src');
     }
 
@@ -1062,7 +1063,7 @@
       if (data.url) {
         masterRegistrationUrl = data.url;
         masterLinkReady = true;
-        if (!state.currentRecord || state.currentRecord.isMaster || !state.currentRecord.id) els.qrImage.src = qrUrl(masterRegistrationUrl);
+        if (!state.currentRecord || state.currentRecord.isMaster || !state.currentRecord.id) els.qrImage.src = masterQrImage;
       }
     }
 

@@ -32,7 +32,15 @@ const adminPass = process.env.ADMIN_PASS || '1234';
 const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
 const masterToken = String(process.env.MASTER_TOKEN || '').trim();
-const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+function normalizeSupabaseUrl(value) {
+  const raw = String(value || '').trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^[a-z0-9]{15,}$/i.test(raw)) return `https://${raw}.supabase.co`;
+  return `https://${raw}`;
+}
+
+const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL);
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
 const resetFromEmail = String(process.env.RESET_FROM_EMAIL || 'Jixels ID Cards <onboarding@resend.dev>').trim();
@@ -437,7 +445,11 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/health' && req.method === 'GET') {
-    sendJson(res, 200, { ok: true, storage: useSupabase ? 'supabase' : 'local-json' });
+    sendJson(res, 200, {
+      ok: true,
+      storage: useSupabase ? 'supabase' : 'local-json',
+      supabaseUrlOk: !supabaseUrl || /^https?:\/\/[^/]+\.supabase\.co/i.test(supabaseUrl)
+    });
     return true;
   }
 
