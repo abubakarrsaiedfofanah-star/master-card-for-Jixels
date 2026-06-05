@@ -346,14 +346,6 @@
       min-height: 16px;
     }
 
-    .status-line {
-      color: #fff;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .3px;
-      text-transform: uppercase;
-    }
-
     .verify-panel {
       width: min(620px, 100%);
       margin: 24px auto;
@@ -568,7 +560,6 @@
               <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name" id="cardName"></span></div>
               <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="cardId"></span></div>
               <div class="detail-line"><span class="detail-label">Position:</span><span class="person-role" id="cardPosition"></span></div>
-              <div class="status-line" id="cardStatus"></div>
             </div>
           </article>
 
@@ -649,7 +640,6 @@
       cardId: document.getElementById('cardId'),
       cardName: document.getElementById('cardName'),
       cardPosition: document.getElementById('cardPosition'),
-      cardStatus: document.getElementById('cardStatus'),
       cardPhoto: document.getElementById('cardPhoto'),
       photoPlaceholder: document.getElementById('photoPlaceholder'),
       recordsBody: document.getElementById('recordsBody'),
@@ -705,7 +695,6 @@
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
-      els.cardStatus.textContent = '';
       els.qrImage.src = !isMasterCard && record.id && record.verificationToken ? qrUrl(verificationUrl(record.verificationToken)) : qrUrl(masterRegistrationUrl);
 
       if (record.photo) {
