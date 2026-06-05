@@ -681,6 +681,10 @@
     }
 
     function setCard(record) {
+      if (!record.isMaster && record.status !== 'Approved') {
+        alert('The ID card will only be generated after admin approval.');
+        return;
+      }
       state.currentRecord = record;
       els.cardId.textContent = record.id || '';
       els.cardName.textContent = record.name;
@@ -760,7 +764,7 @@
           <td>${record.position}</td>
           <td>${record.status || 'Pending'}</td>
           <td>
-            <button type="button" data-action="view" data-id="${record.id}">View</button>
+            ${record.status === 'Approved' ? `<button type="button" data-action="view" data-id="${record.id}">View Card</button>` : '<span>Awaiting approval</span>'}
             <button type="button" data-action="approve" data-id="${record.id}">Approve</button>
             <button type="button" data-action="reject" data-id="${record.id}">Reject</button>
             <button type="button" data-action="inactive" data-id="${record.id}">Inactive</button>
@@ -977,8 +981,10 @@
       resetForm();
       if (hasMasterAccess && !state.adminPin) {
         alert('Registration submitted successfully. Please wait for admin approval.');
-      } else {
+      } else if (record.status === 'Approved') {
         setCard(record);
+      } else {
+        alert('Registration saved. The ID card will be generated after admin approval.');
       }
     });
 
@@ -997,7 +1003,7 @@
           const index = state.records.findIndex((item) => item.id === updated.id);
           if (index !== -1) state.records[index] = updated;
           renderRecords();
-          setCard(updated);
+          if (updated.status === 'Approved') setCard(updated);
         }).catch((error) => alert(error.message));
       }
       if (button.dataset.action === 'edit') startEdit(record);

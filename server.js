@@ -542,7 +542,7 @@ async function handleApi(req, res, url) {
         position: String(payload.position || '').trim(),
         photo: String(payload.photo || ''),
         inactiveReason: '',
-        status: 'Pending',
+        status: isAdmin(req) ? String(payload.status || 'Pending').trim() || 'Pending' : 'Pending',
         createdAt: new Date().toISOString()
       };
 
