@@ -412,6 +412,32 @@
       display: block;
     }
 
+    .verify-actions,
+    .tracking-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .tracking-card {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1e3a5f;
+      font-weight: 700;
+      line-height: 1.45;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    .tracking-card a {
+      color: #145da0;
+      overflow-wrap: anywhere;
+      font-weight: 800;
+    }
+
     .field-label {
       color: rgba(255, 255, 255, .74);
       font-size: 11px;
@@ -477,6 +503,7 @@
     @media print {
       body { background: #fff; }
       .topbar, .panel, .records, .master-note { display: none !important; }
+      .verify-panel { display: none !important; }
       .app { width: auto; padding: 0; }
       .workspace { display: block; }
       .cards-row { display: flex; gap: 18px; justify-content: center; }
@@ -503,6 +530,11 @@
       <img class="verify-photo hidden" id="verifyPhoto" alt="">
       <h1 id="verifyTitle"></h1>
       <dl id="verifyDetails"></dl>
+      <div class="verify-actions hidden" id="claimActions">
+        <button type="button" id="claimRefreshBtn">Check Again</button>
+        <button type="button" class="secondary" id="claimPrintBtn">Print ID Card</button>
+        <button type="button" class="secondary" id="claimDownloadBtn">Download ID Card</button>
+      </div>
     </section>
 
     <div class="topbar" id="topbar">
@@ -520,6 +552,13 @@
         <h2>Card Form</h2>
         <p id="scanNotice" class="hidden">Scan the master card QR code to open registration.</p>
         <p id="successMessage" class="success-message hidden">Registration saved successfully. Please wait for admin approval.</p>
+        <div id="trackingBox" class="tracking-card hidden">
+          <div>Your registration has been received. Keep this link to check approval and download your ID card later.</div>
+          <div class="tracking-actions">
+            <a id="trackingLink" href="#">Check ID Status</a>
+            <button type="button" class="secondary" id="copyTrackingBtn">Copy Link</button>
+          </div>
+        </div>
         <div class="form-grid">
           <label>
             Full name
@@ -629,6 +668,7 @@
     let masterRegistrationUrl = '';
     let masterLinkReady = false;
     const masterToken = new URLSearchParams(window.location.search).get('master') || '';
+    const claimToken = new URLSearchParams(window.location.search).get('claim') || '';
     const hasMasterAccess = Boolean(masterToken);
 
     const state = {
@@ -645,10 +685,17 @@
       verifyPhoto: document.getElementById('verifyPhoto'),
       verifyTitle: document.getElementById('verifyTitle'),
       verifyDetails: document.getElementById('verifyDetails'),
+      claimActions: document.getElementById('claimActions'),
+      claimRefreshBtn: document.getElementById('claimRefreshBtn'),
+      claimPrintBtn: document.getElementById('claimPrintBtn'),
+      claimDownloadBtn: document.getElementById('claimDownloadBtn'),
       topbar: document.getElementById('topbar'),
       openFormLink: document.getElementById('openFormLink'),
       scanNotice: document.getElementById('scanNotice'),
       successMessage: document.getElementById('successMessage'),
+      trackingBox: document.getElementById('trackingBox'),
+      trackingLink: document.getElementById('trackingLink'),
+      copyTrackingBtn: document.getElementById('copyTrackingBtn'),
       name: document.getElementById('name'),
       location: document.getElementById('location'),
       branch: document.getElementById('branch'),
@@ -713,6 +760,14 @@
       return url.href;
     }
 
+    function claimUrl(token) {
+      const url = new URL(masterRegistrationUrl || window.location.href);
+      url.pathname = '/';
+      url.search = `?claim=${encodeURIComponent(token)}`;
+      url.hash = '';
+      return url.href;
+    }
+
     function setCard(record) {
       if (!record.isMaster && record.status !== 'Approved') {
         alert('The ID card will only be generated after admin approval.');
@@ -740,6 +795,14 @@
         els.cardPhoto.classList.add('hidden');
         els.photoPlaceholder.classList.remove('hidden');
       }
+    }
+
+    function showTrackingLink(record) {
+      if (!record?.verificationToken) return;
+      const url = claimUrl(record.verificationToken);
+      els.trackingLink.href = url;
+      els.trackingLink.textContent = url;
+      els.trackingBox.classList.remove('hidden');
     }
 
     function showMaster() {
@@ -933,11 +996,35 @@
         return;
       }
       if (!confirmMasterQrReady()) return;
-      const canvas = await html2canvas(document.querySelector('.cards-row'), { backgroundColor: '#eef2f6', scale: 2 });
+      const canvas = await html2canvas(document.querySelector('.cards-row'), { backgroundColor: '#eef2f6', scale: 2, useCORS: true });
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
       link.download = `${els.cardId.textContent.replace('ID No. ', '') || 'jixels-master-card'}.png`;
       link.click();
+    }
+
+    async function loadClaimFromUrl() {
+      if (!claimToken) return false;
+      try {
+        const response = await fetch(`/api/verify?token=${encodeURIComponent(claimToken)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to check ID status.');
+        renderClaim(data.card, claimToken);
+        return true;
+      } catch (error) {
+        renderClaim({
+          id: 'Unknown',
+          name: 'Card Not Found',
+          position: '',
+          branch: '',
+          photo: '',
+          status: 'Deleted',
+          valid: false,
+          invalidReason: error.message || 'This card is not active in the system.',
+          verifiedAt: new Date().toISOString()
+        }, claimToken);
+        return true;
+      }
     }
 
     async function loadVerificationFromUrl() {
@@ -973,6 +1060,7 @@
       els.topbar.classList.add('hidden');
       els.form.classList.add('hidden');
       document.querySelector('.cards-row').classList.add('hidden');
+      els.claimActions.classList.add('hidden');
       els.verifyPanel.classList.remove('hidden');
       els.verifyBadge.className = `verify-badge ${valid ? 'valid' : 'invalid'}`;
       els.verifyBadge.textContent = valid ? 'VALID' : 'NOT VALID';
@@ -993,6 +1081,52 @@
           <dt>National ID</dt><dd>${card.nationalIdLast4 ? `****${card.nationalIdLast4}` : 'Not shown'}</dd>
           <dt>Checked At</dt><dd>${new Date(card.verifiedAt).toLocaleString()}</dd>
         `;
+    }
+
+    function renderClaim(card, token) {
+      const valid = Boolean(card.valid);
+      els.topbar.classList.add('hidden');
+      els.form.classList.add('hidden');
+      els.verifyPanel.classList.remove('hidden');
+      els.verifyBadge.className = `verify-badge ${valid ? 'valid' : 'invalid'}`;
+      els.verifyBadge.textContent = valid ? 'APPROVED' : String(card.status || 'PENDING').toUpperCase();
+      els.verifyTitle.textContent = valid ? 'Your ID Card Is Ready' : 'Registration Status';
+      if (card.photo) {
+        els.verifyPhoto.src = card.photo;
+        els.verifyPhoto.classList.remove('hidden');
+      } else {
+        els.verifyPhoto.removeAttribute('src');
+        els.verifyPhoto.classList.add('hidden');
+      }
+      els.verifyDetails.innerHTML = `
+        <dt>Name</dt><dd>${card.name || ''}</dd>
+        <dt>ID No.</dt><dd>${valid ? card.id : 'Waiting for approval'}</dd>
+        <dt>Position</dt><dd>${card.position || ''}</dd>
+        <dt>Branch</dt><dd>${card.branch || ''}</dd>
+        <dt>Status</dt><dd>${card.status || 'Pending'}</dd>
+        <dt>Result</dt><dd>${valid ? 'Approved. You can download your ID card now.' : (card.invalidReason || 'Please wait for admin approval.')}</dd>
+      `;
+
+      if (valid) {
+        els.claimPrintBtn.classList.remove('hidden');
+        els.claimDownloadBtn.classList.remove('hidden');
+        setCard({
+          id: card.id,
+          name: card.name,
+          position: card.position,
+          photo: card.photo,
+          status: 'Approved',
+          verificationToken: token
+        });
+        document.querySelector('.cards-row').classList.remove('hidden');
+        els.claimActions.classList.remove('hidden');
+      } else {
+        state.currentRecord = null;
+        document.querySelector('.cards-row').classList.add('hidden');
+        els.claimActions.classList.remove('hidden');
+        els.claimPrintBtn.classList.add('hidden');
+        els.claimDownloadBtn.classList.add('hidden');
+      }
     }
 
     els.form.addEventListener('submit', async (event) => {
@@ -1025,6 +1159,7 @@
         resetForm();
         if (hasMasterAccess && !state.adminPin) {
           els.successMessage.classList.remove('hidden');
+          showTrackingLink(record);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (record.status === 'Approved') {
           setCard(record);
@@ -1077,6 +1212,25 @@
     els.exportBtn.addEventListener('click', exportCsv);
     els.cancelEditBtn.addEventListener('click', resetForm);
     els.downloadBtn.addEventListener('click', downloadCard);
+    els.claimRefreshBtn.addEventListener('click', () => window.location.reload());
+    els.claimPrintBtn.addEventListener('click', () => {
+      if (!state.currentRecord) {
+        alert('Your ID card is not approved yet.');
+        return;
+      }
+      window.print();
+    });
+    els.claimDownloadBtn.addEventListener('click', () => downloadCard().catch((error) => alert(error.message || 'Unable to download card.')));
+    els.copyTrackingBtn.addEventListener('click', async () => {
+      const url = els.trackingLink.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        els.copyTrackingBtn.textContent = 'Copied';
+        setTimeout(() => { els.copyTrackingBtn.textContent = 'Copy Link'; }, 1600);
+      } catch {
+        prompt('Copy this link:', url);
+      }
+    });
 
     els.printBtn.addEventListener('click', () => {
       const isMasterCard = state.currentRecord && state.currentRecord.isMaster;
@@ -1102,7 +1256,11 @@
     els.qrImage.removeAttribute('src');
     els.adminPin.value = state.adminPin;
 
-    if (hasMasterAccess) {
+    if (claimToken) {
+      els.topbar.classList.add('hidden');
+      els.form.classList.add('hidden');
+      document.querySelector('.cards-row').classList.add('hidden');
+    } else if (hasMasterAccess) {
       els.topbar.classList.add('hidden');
       document.querySelector('.cards-row').classList.add('hidden');
       els.status.classList.add('hidden');
@@ -1117,8 +1275,11 @@
     }
 
     loadMasterLink();
-    loadVerificationFromUrl().then((loaded) => {
-      if (!loaded && !hasMasterAccess) showMaster();
+    loadClaimFromUrl().then((claimed) => {
+      if (claimed) return;
+      loadVerificationFromUrl().then((loaded) => {
+        if (!loaded && !hasMasterAccess) showMaster();
+      });
     });
   </script>
 </body>
