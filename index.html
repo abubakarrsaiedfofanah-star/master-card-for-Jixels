@@ -992,35 +992,45 @@
 
     els.form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const photoFile = els.photo.files[0];
-      let photo = '';
-      if (photoFile) photo = await readFileAsDataUrl(photoFile);
-      els.successMessage.classList.add('hidden');
-      const payload = {
-        masterToken,
-        name: els.name.value.trim(),
-        location: els.location.value.trim(),
-        branch: els.branch.value.trim(),
-        nationalId: els.nationalId.value.trim(),
-        phone: els.phone.value.trim(),
-        position: els.position.value.trim(),
-        status: state.adminPin ? els.status.value : 'Pending',
-        photo
-      };
+      const originalText = els.saveBtn.textContent;
+      els.saveBtn.disabled = true;
+      els.saveBtn.textContent = 'Saving...';
+      try {
+        const photoFile = els.photo.files[0];
+        let photo = '';
+        if (photoFile) photo = await readFileAsDataUrl(photoFile);
+        els.successMessage.classList.add('hidden');
+        const payload = {
+          masterToken,
+          name: els.name.value.trim(),
+          location: els.location.value.trim(),
+          branch: els.branch.value.trim(),
+          nationalId: els.nationalId.value.trim(),
+          phone: els.phone.value.trim(),
+          position: els.position.value.trim(),
+          status: state.adminPin ? els.status.value : 'Pending',
+          photo
+        };
 
-      const record = state.editingId ? await updateCard(state.editingId, payload) : await saveCard(payload);
-      const index = state.records.findIndex((item) => item.id === record.id);
-      if (index === -1) state.records.push(record);
-      else state.records[index] = record;
-      renderRecords();
-      resetForm();
-      if (hasMasterAccess && !state.adminPin) {
-        els.successMessage.classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (record.status === 'Approved') {
-        setCard(record);
-      } else {
-        alert('Registration saved. The ID card will be generated after admin approval.');
+        const record = state.editingId ? await updateCard(state.editingId, payload) : await saveCard(payload);
+        const index = state.records.findIndex((item) => item.id === record.id);
+        if (index === -1) state.records.push(record);
+        else state.records[index] = record;
+        renderRecords();
+        resetForm();
+        if (hasMasterAccess && !state.adminPin) {
+          els.successMessage.classList.remove('hidden');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (record.status === 'Approved') {
+          setCard(record);
+        } else {
+          alert('Registration saved. The ID card will be generated after admin approval.');
+        }
+      } catch (error) {
+        alert(error.message || 'Unable to save registration. Please try again.');
+      } finally {
+        els.saveBtn.disabled = false;
+        els.saveBtn.textContent = hasMasterAccess && !state.adminPin ? 'Save And Generate Card' : originalText;
       }
     });
 
