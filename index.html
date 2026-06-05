@@ -974,8 +974,12 @@
       if (index === -1) state.records.push(record);
       else state.records[index] = record;
       renderRecords();
-      setCard(record);
       resetForm();
+      if (hasMasterAccess && !state.adminPin) {
+        alert('Registration submitted successfully. Please wait for admin approval.');
+      } else {
+        setCard(record);
+      }
     });
 
     els.recordsBody.addEventListener('click', (event) => {
@@ -1040,7 +1044,10 @@
     els.qrImage.src = qrUrl(masterRegistrationUrl);
     els.adminPin.value = state.adminPin;
 
-    if (!hasMasterAccess) {
+    if (hasMasterAccess) {
+      els.topbar.classList.add('hidden');
+      document.querySelector('.cards-row').classList.add('hidden');
+    } else {
       els.topbar.classList.add('hidden');
       els.form.classList.add('hidden');
       [...els.form.querySelectorAll('label, button, img.photo-preview')].forEach((item) => item.classList.add('hidden'));
@@ -1050,7 +1057,7 @@
 
     loadMasterLink();
     loadVerificationFromUrl().then((loaded) => {
-      if (!loaded) showMaster();
+      if (!loaded && !hasMasterAccess) showMaster();
     });
   </script>
 </body>
