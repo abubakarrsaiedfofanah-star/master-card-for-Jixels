@@ -534,7 +534,7 @@
             Position
             <input id="position" required placeholder="Enter position">
           </label>
-          <label>
+          <label id="statusField">
             Status
             <select id="status">
               <option>Pending</option>
@@ -551,7 +551,7 @@
           </label>
           <img id="photoPreview" class="photo-preview hidden" alt="Photo preview">
           <div class="control-row">
-            <button type="submit" id="saveBtn">Save And Generate Card</button>
+            <button type="submit" id="saveBtn">Submit Registration</button>
             <button type="button" class="secondary hidden" id="cancelEditBtn">Cancel Edit</button>
           </div>
         </div>
@@ -640,6 +640,7 @@
       nationalId: document.getElementById('nationalId'),
       phone: document.getElementById('phone'),
       position: document.getElementById('position'),
+      statusField: document.getElementById('statusField'),
       status: document.getElementById('status'),
       photo: document.getElementById('photo'),
       photoPreview: document.getElementById('photoPreview'),
@@ -854,7 +855,7 @@
       els.photo.required = true;
       els.photoPreview.classList.add('hidden');
       els.photoPreview.removeAttribute('src');
-      els.saveBtn.textContent = 'Save And Generate Card';
+      els.saveBtn.textContent = 'Submit Registration';
       els.cancelEditBtn.classList.add('hidden');
     }
 
@@ -981,7 +982,7 @@
         nationalId: els.nationalId.value.trim(),
         phone: els.phone.value.trim(),
         position: els.position.value.trim(),
-        status: els.status.value,
+        status: state.adminPin ? els.status.value : 'Pending',
         photo
       };
 
@@ -1065,6 +1066,8 @@
     if (hasMasterAccess) {
       els.topbar.classList.add('hidden');
       document.querySelector('.cards-row').classList.add('hidden');
+      els.statusField.classList.add('hidden');
+      els.saveBtn.textContent = 'Submit Registration';
     } else {
       els.topbar.classList.add('hidden');
       els.form.classList.add('hidden');
