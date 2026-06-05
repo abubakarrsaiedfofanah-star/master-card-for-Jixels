@@ -606,7 +606,8 @@
   <script>
     const adminPinKey = 'jixelsAdminPin';
     const printedCardId = '29352273';
-    let masterRegistrationUrl = window.location.href;
+    let masterRegistrationUrl = '';
+    let masterLinkReady = false;
     const masterToken = new URLSearchParams(window.location.search).get('master') || '';
     const hasMasterAccess = Boolean(masterToken);
 
@@ -674,7 +675,12 @@
     }
 
     function confirmMasterQrReady() {
-      if (!state.currentRecord?.isMaster || !isLocalRegistrationUrl()) return true;
+      if (!state.currentRecord?.isMaster) return true;
+      if (!masterLinkReady) {
+        alert('The master registration QR is still loading. Please wait a few seconds and try again.');
+        return false;
+      }
+      if (!isLocalRegistrationUrl()) return true;
       return confirm('This master QR uses a local/private network link. It may only work on this Wi-Fi. Continue anyway?');
     }
 
@@ -696,7 +702,13 @@
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
-      els.qrImage.src = !isMasterCard && record.id && record.verificationToken ? qrUrl(verificationUrl(record.verificationToken)) : qrUrl(masterRegistrationUrl);
+      if (!isMasterCard && record.id && record.verificationToken) {
+        els.qrImage.src = qrUrl(verificationUrl(record.verificationToken));
+      } else if (masterRegistrationUrl) {
+        els.qrImage.src = qrUrl(masterRegistrationUrl);
+      } else {
+        els.qrImage.removeAttribute('src');
+      }
 
       if (record.photo) {
         els.cardPhoto.src = record.photo;
@@ -721,7 +733,8 @@
         phone: '+254713846393',
         photo: 'james-photo.jpeg'
       });
-      els.qrImage.src = qrUrl(masterRegistrationUrl);
+      if (masterRegistrationUrl) els.qrImage.src = qrUrl(masterRegistrationUrl);
+      else els.qrImage.removeAttribute('src');
     }
 
     function filteredRecords() {
@@ -1048,11 +1061,12 @@
       const data = await response.json();
       if (data.url) {
         masterRegistrationUrl = data.url;
+        masterLinkReady = true;
         if (!state.currentRecord || state.currentRecord.isMaster || !state.currentRecord.id) els.qrImage.src = qrUrl(masterRegistrationUrl);
       }
     }
 
-    els.qrImage.src = qrUrl(masterRegistrationUrl);
+    els.qrImage.removeAttribute('src');
     els.adminPin.value = state.adminPin;
 
     if (hasMasterAccess) {
