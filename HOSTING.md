@@ -14,7 +14,7 @@ MASTER_TOKEN=e505cd63ee68a61a4d80c8f7ea6044fc00592439699f264e
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 RESEND_API_KEY=re_your_key
-RESET_FROM_EMAIL=MAPPHEX ID Cards <onboarding@resend.dev>
+RESET_FROM_EMAIL=Jixels ID Cards <onboarding@resend.dev>
 ```
 
 ## Supabase Setup

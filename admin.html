@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Jixels Admin Panel</title>
+  <title>Jixels Admin</title>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('https://mapphex-id-cards-portal.onrender.com/jixels-admin');
+      window.location.replace('https://master-card-for-jixels.onrender.com/admin');
     }
   </script>
   <style>
@@ -267,7 +267,7 @@
     <div class="admin-header-inner">
       <div class="admin-brand">
         <strong>Jixels Admin Panel</strong>
-        <span>Jixels ID registration, approval, and verification control</span>
+        <span>ID registration, approval, and verification control</span>
       </div>
       <div class="header-actions">
         <div class="admin-status">Secure admin access</div>
@@ -277,7 +277,7 @@
   </header>
   <main>
     <div class="topbar">
-      <h1>Jixels Admin Panel</h1>
+      <h1>Jixels Admin</h1>
       <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
         <div class="password-wrap">
@@ -447,7 +447,6 @@
         </div>
         <pre class="audit" id="auditBox"></pre>
       </div>
-
       </div>
     </section>
   </main>
@@ -465,7 +464,7 @@
 
     function friendlyError(error) {
       if (error && /failed to fetch/i.test(error.message || '')) {
-        return 'Could not reach the hosted server. Open https://mapphex-id-cards-portal.onrender.com/jixels-admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
+        return 'Could not reach the hosted server. Open https://master-card-for-jixels.onrender.com/admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
       }
       return error.message || 'Something went wrong.';
     }
@@ -541,16 +540,6 @@
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
 
-    async function readJson(response) {
-      const text = await response.text();
-      if (!text) return {};
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        return { error: text };
-      }
-    }
-
     function qrUrl(data) {
       return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(data)}`;
     }
@@ -576,7 +565,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: state.user, password: state.pin })
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to login.');
       state.token = data.token;
       sessionStorage.setItem('jixelsAdminToken', state.token);
@@ -585,7 +574,7 @@
 
     async function loadCards() {
       const response = await fetch('/api/cards', { headers: headers() });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load cards.');
       state.records = data.cards || [];
       render();
@@ -727,7 +716,7 @@
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, inactiveReason })
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to update status.');
       return data;
     }
@@ -763,7 +752,7 @@
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to update card.');
       const index = state.records.findIndex((r) => r.id === data.card.id);
       if (index !== -1) state.records[index] = data.card;
@@ -796,7 +785,7 @@
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to create card.');
       state.records.push(data.card);
       els.createForm.reset();
@@ -816,7 +805,7 @@
 
     async function backupJson() {
       const response = await fetch('/api/backup', { headers: headers() });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to create backup.');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -832,14 +821,14 @@
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: text
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to restore backup.');
       await loadCards();
     }
 
     async function showAudit() {
       const response = await fetch('/api/audit', { headers: headers() });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load audit.');
       els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
     }
@@ -850,7 +839,7 @@
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: els.newUser.value.trim(), email: els.newEmail.value.trim(), password: els.newPassword.value })
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to change password.');
       alert('Admin login changed. Please log in again with the new password.');
     }
@@ -861,7 +850,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: els.resetEmail.value.trim() })
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to send reset code.');
       alert(data.message || 'Reset code sent.');
     }
@@ -876,7 +865,7 @@
           password: els.resetPassword.value
         })
       });
-      const data = await readJson(response);
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to reset password.');
       alert('Password reset successfully. Please log in with the new password.');
       els.resetBox.classList.add('hidden');
@@ -1021,7 +1010,7 @@
     }
   </script>
   <footer class="admin-footer">
-    <div class="admin-footer-inner">Jixels admin system</div>
+    <div class="admin-footer-inner">Jixels Technologies Ltd admin system</div>
   </footer>
 </body>
 </html>

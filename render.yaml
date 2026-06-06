@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mapphex-id-cards-portal
+    name: master-card-for-jixels
     env: node
     plan: free
     buildCommand: npm install
