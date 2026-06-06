@@ -354,8 +354,9 @@ function loadMasterConfig() {
 
 function appBaseUrl(req) {
   const forwardedProtocol = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-  const protocol = forwardedProtocol || (process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http');
-  const requestBaseUrl = `${protocol}://${req.headers.host}`;
+  const host = String(req.headers.host || '').trim();
+  const protocol = forwardedProtocol || (/onrender\.com$/i.test(host) ? 'https' : (process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http'));
+  const requestBaseUrl = `${protocol}://${host}`;
   if (publicBaseUrl && !/mapphex-id-cards-portal/i.test(publicBaseUrl)) return publicBaseUrl;
   return requestBaseUrl;
 }
