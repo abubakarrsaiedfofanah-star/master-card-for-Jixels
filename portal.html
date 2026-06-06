@@ -17,6 +17,15 @@
     .grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; align-items: start; }
     .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
     .panel h2 { font-size: 18px; }
+    .intro { min-height: calc(100vh - 116px); display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: center; }
+    .intro-copy { display: grid; gap: 16px; align-content: center; }
+    .intro-title { font-size: clamp(34px, 5vw, 60px); line-height: 1; font-weight: 900; letter-spacing: 0; }
+    .intro-text { color: var(--muted); font-size: 17px; font-weight: 700; line-height: 1.45; max-width: 650px; }
+    .intro-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .intro-preview { display: grid; justify-items: center; gap: 10px; }
+    .sample-card { transform: rotate(-2deg); }
+    .sample-card .logo-front { display: grid; place-items: center; color: var(--blue); font-size: 24px; font-weight: 900; border: 2px solid var(--blue); border-radius: 8px; background: #fff; }
+    .sample-card .photo-ring span { font-size: 22px; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
     input, select, textarea { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 10px; font: inherit; }
     textarea { min-height: 76px; resize: vertical; }
@@ -31,6 +40,14 @@
     .template { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #f8fafc; font-size: 12px; cursor: pointer; }
     .template input { width: auto; margin-right: 6px; }
     .feature-list { margin: 0; padding-left: 18px; display: grid; gap: 7px; font-weight: 700; }
+    .upload-box { border: 2px dashed #abc4dd; border-radius: 8px; background: #f8fafc; padding: 14px; display: grid; gap: 10px; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .upload-box.dragging { border-color: var(--blue); background: #eff6ff; }
+    .upload-row { display: grid; grid-template-columns: 104px 1fr; gap: 12px; align-items: center; }
+    .logo-preview { width: 104px; height: 82px; border: 1px solid var(--line); border-radius: 8px; background: #fff; object-fit: contain; padding: 6px; }
+    .logo-copy { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; line-height: 1.35; }
+    .logo-copy strong { color: var(--ink); font-size: 13px; }
+    .logo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .logo-actions button { padding: 8px 10px; }
     .master-card { width: 330px; height: 520px; border: 1px solid var(--line); border-radius: 22px; background: #fff; overflow: hidden; position: relative; box-shadow: 0 10px 22px rgba(31,47,68,.13); }
     .master-logo { position: absolute; top: 22px; left: 42px; width: 246px; height: 112px; object-fit: contain; }
     .master-band { position: absolute; left: 24px; right: 24px; top: 158px; height: 166px; border-radius: 16px; background: var(--blue); color: #fff; padding: 18px; display: grid; align-content: center; gap: 8px; }
@@ -62,7 +79,7 @@
     table { width: 100%; min-width: 900px; border-collapse: collapse; background: #fff; font-size: 14px; }
     th, td { border-bottom: 1px solid var(--line); padding: 9px; text-align: left; vertical-align: top; }
     th { color: var(--muted); font-size: 12px; }
-    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } .templates { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 880px) { .grid, .intro { grid-template-columns: 1fr; } .templates { grid-template-columns: repeat(2, minmax(0, 1fr)); } .intro { min-height: auto; } }
     @media print { header, .no-print, .panel:not(#masterPanel):not(#idPreviewPanel) { display: none !important; } body { background: #fff; } #masterPanel, #idPreviewPanel { border: 0; padding: 0; } .master-card, .id-card { box-shadow: none; } }
   </style>
 </head>
@@ -86,8 +103,31 @@
       </form>
     </section>
 
-    <section class="grid no-print">
-      <form class="panel" id="orgRegisterForm">
+    <section class="intro no-print" id="portalIntro">
+      <div class="intro-copy">
+        <div class="intro-title">MAPPHEX ID CARDS PORTAL</div>
+        <div class="intro-text">Secure branded ID cards, master QR registration, organization admin access, and smart approval workflows.</div>
+        <div class="intro-actions">
+          <button type="button" id="startRegisterBtn">Register</button>
+          <button type="button" class="secondary" id="alreadyRegisteredBtn">Login</button>
+        </div>
+      </div>
+      <div class="intro-preview">
+        <article class="id-card sample-card">
+          <div class="logo-front">MAPPHEX</div>
+          <div class="front-shape"></div>
+          <div class="photo-ring"><span>PHOTO</span></div>
+          <div class="front-info">
+            <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name">Amina Cole</span></div>
+            <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number">MAPP/001</span></div>
+            <div class="detail-line"><span class="detail-label">Role:</span><span class="person-role">Staff</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="grid no-print hidden" id="entryArea">
+      <form class="panel hidden" id="orgRegisterForm">
         <h2>Register Organization</h2>
         <label>Organization name<input name="name" required></label>
         <label>Organization type<select name="type" id="orgType"></select></label>
@@ -96,11 +136,25 @@
         <label>Phone<input name="phone" required></label>
         <label>Owner/admin name<input name="ownerName"></label>
         <label>Password<input name="password" type="password" minlength="8" required></label>
-        <label>Logo URL or data image<textarea name="logo" placeholder="Paste logo data/url for now"></textarea></label>
+        <input name="logo" id="registerLogoValue" type="hidden">
+        <div class="upload-box" data-logo-drop="register" tabindex="0">
+          <div class="upload-row">
+            <img class="logo-preview hidden" id="registerLogoPreview" alt="">
+            <div class="logo-copy">
+              <strong>Upload organization logo</strong>
+              <span>PNG, JPG, WEBP, GIF, or SVG. Transparent PNG works best.</span>
+              <div class="logo-actions">
+                <button type="button" class="secondary" data-logo-pick="register">Choose Logo</button>
+                <button type="button" class="secondary hidden" data-logo-remove="register">Remove</button>
+              </div>
+            </div>
+          </div>
+          <input id="registerLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
+        </div>
         <button type="submit">Create Organization</button>
       </form>
 
-      <div class="panel">
+      <div class="panel hidden" id="loginPanel">
         <h2>Organization Admin Login</h2>
         <form id="loginForm" class="row">
           <input name="email" type="email" placeholder="Organization email" required>
@@ -115,6 +169,25 @@
       <div class="panel">
         <h2>Templates and Features</h2>
         <div id="subscriptionNotice" class="notice hidden"></div>
+        <form id="brandingForm">
+          <input name="logo" id="dashboardLogoValue" type="hidden">
+          <label>Selected template<select name="templateId" id="templateSelect"></select></label>
+          <div class="upload-box" data-logo-drop="dashboard" tabindex="0">
+            <div class="upload-row">
+              <img class="logo-preview hidden" id="dashboardLogoPreview" alt="">
+              <div class="logo-copy">
+                <strong>Organization logo</strong>
+                <span>Upload once and it aligns automatically on master cards and ID cards.</span>
+                <div class="logo-actions">
+                  <button type="button" class="secondary" data-logo-pick="dashboard">Choose Logo</button>
+                  <button type="button" class="secondary hidden" data-logo-remove="dashboard">Remove</button>
+                </div>
+              </div>
+            </div>
+            <input id="dashboardLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
+          </div>
+          <button type="submit">Save Branding</button>
+        </form>
         <div id="templateGallery" class="templates"></div>
         <ul class="feature-list">
           <li>Choose one ID card front template for your organization.</li>
@@ -216,8 +289,13 @@
     const state = { token: '', org: null, rules: null, cards: [], masterToken: new URLSearchParams(location.search).get('master') || '' };
     const els = {
       sessionStatus: document.getElementById('sessionStatus'), logoutBtn: document.getElementById('logoutBtn'),
+      portalIntro: document.getElementById('portalIntro'), entryArea: document.getElementById('entryArea'), startRegisterBtn: document.getElementById('startRegisterBtn'),
+      alreadyRegisteredBtn: document.getElementById('alreadyRegisteredBtn'), loginPanel: document.getElementById('loginPanel'),
       orgType: document.getElementById('orgType'), templateGallery: document.getElementById('templateGallery'),
       orgRegisterForm: document.getElementById('orgRegisterForm'), loginForm: document.getElementById('loginForm'), loginNotice: document.getElementById('loginNotice'),
+      registerLogoValue: document.getElementById('registerLogoValue'), registerLogoPreview: document.getElementById('registerLogoPreview'), registerLogoFile: document.getElementById('registerLogoFile'),
+      brandingForm: document.getElementById('brandingForm'), dashboardLogoValue: document.getElementById('dashboardLogoValue'), dashboardLogoPreview: document.getElementById('dashboardLogoPreview'),
+      dashboardLogoFile: document.getElementById('dashboardLogoFile'), templateSelect: document.getElementById('templateSelect'),
       dashboard: document.getElementById('dashboard'), subscriptionNotice: document.getElementById('subscriptionNotice'), masterCard: document.getElementById('masterCard'),
       masterLogo: document.getElementById('masterLogo'), masterOrgName: document.getElementById('masterOrgName'), masterOrgType: document.getElementById('masterOrgType'),
       masterNumber: document.getElementById('masterNumber'), masterBusiness: document.getElementById('masterBusiness'), masterQr: document.getElementById('masterQr'),
@@ -236,6 +314,41 @@
     function qrUrl(value) { return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(value)}`; }
     function niceLabel(key) { return key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()); }
     function verificationUrl(token) { return `${window.location.origin}/?token=${encodeURIComponent(token)}`; }
+    function hasRegisteredOrganization() { return localStorage.getItem('mapphexOrganizationRegistered') === 'true'; }
+    function rememberRegisteredOrganization() { localStorage.setItem('mapphexOrganizationRegistered', 'true'); }
+    function showIntro() {
+      els.portalIntro.classList.remove('hidden');
+      els.entryArea.classList.add('hidden');
+      els.orgRegisterForm.classList.add('hidden');
+      els.loginPanel.classList.add('hidden');
+    }
+    function showRegistration() {
+      els.portalIntro.classList.add('hidden');
+      els.entryArea.classList.remove('hidden');
+      els.orgRegisterForm.classList.remove('hidden');
+      els.loginPanel.classList.add('hidden');
+    }
+    function showLogin() {
+      els.portalIntro.classList.add('hidden');
+      els.entryArea.classList.remove('hidden');
+      els.orgRegisterForm.classList.add('hidden');
+      els.loginPanel.classList.remove('hidden');
+    }
+    function showDashboardShell() {
+      els.portalIntro.classList.add('hidden');
+      els.entryArea.classList.add('hidden');
+      els.orgRegisterForm.classList.add('hidden');
+      els.loginPanel.classList.add('hidden');
+    }
+    function initializeEntryView() {
+      if (state.masterToken) {
+        els.portalIntro.classList.add('hidden');
+        els.entryArea.classList.add('hidden');
+        return;
+      }
+      if (hasRegisteredOrganization()) showLogin();
+      else showIntro();
+    }
     function friendlyError(error) {
       if (error && /failed to fetch/i.test(error.message || '')) {
         return 'Could not reach MAPPHEX server. Open this page through the running app URL, not by double-clicking the HTML file, and confirm the server is online.';
@@ -263,6 +376,7 @@
 
     function renderTemplateGallery(templates, selectedId) {
       els.templateGallery.innerHTML = (templates || []).map((template) => `<label class="template"><input type="radio" name="templatePreview" value="${template.id}" ${template.id === selectedId ? 'checked' : ''} disabled>${template.name}<br>${template.description}</label>`).join('');
+      els.templateSelect.innerHTML = (templates || []).map((template) => `<option value="${template.id}" ${template.id === selectedId ? 'selected' : ''}>${template.name}</option>`).join('');
     }
 
     function setImage(element, src) {
@@ -273,6 +387,70 @@
         element.removeAttribute('src');
         element.classList.add('hidden');
       }
+    }
+
+    function setLogoValue(scope, value) {
+      const input = scope === 'register' ? els.registerLogoValue : els.dashboardLogoValue;
+      const preview = scope === 'register' ? els.registerLogoPreview : els.dashboardLogoPreview;
+      const removeButton = document.querySelector(`[data-logo-remove="${scope}"]`);
+      input.value = value || '';
+      setImage(preview, value || '');
+      if (removeButton) removeButton.classList.toggle('hidden', !value);
+    }
+
+    function readLogoFile(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error('Choose a logo image first.'));
+          return;
+        }
+        const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
+        if (!allowed.includes(file.type)) {
+          reject(new Error('Logo must be PNG, JPG, WEBP, GIF, or SVG.'));
+          return;
+        }
+        if (file.size > 1_500_000) {
+          reject(new Error('Logo is too large. Use an image under 1.5MB.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Unable to read this logo file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleLogoFile(scope, file) {
+      setLogoValue(scope, await readLogoFile(file));
+    }
+
+    function setupLogoUploader(scope) {
+      const box = document.querySelector(`[data-logo-drop="${scope}"]`);
+      const fileInput = scope === 'register' ? els.registerLogoFile : els.dashboardLogoFile;
+      const pickButton = document.querySelector(`[data-logo-pick="${scope}"]`);
+      const removeButton = document.querySelector(`[data-logo-remove="${scope}"]`);
+      pickButton.addEventListener('click', () => fileInput.click());
+      removeButton.addEventListener('click', () => {
+        fileInput.value = '';
+        setLogoValue(scope, '');
+      });
+      fileInput.addEventListener('change', () => handleLogoFile(scope, fileInput.files[0]).catch((error) => alert(friendlyError(error))));
+      box.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        box.classList.add('dragging');
+      });
+      box.addEventListener('dragleave', () => box.classList.remove('dragging'));
+      box.addEventListener('drop', (event) => {
+        event.preventDefault();
+        box.classList.remove('dragging');
+        handleLogoFile(scope, event.dataTransfer.files[0]).catch((error) => alert(friendlyError(error)));
+      });
+      box.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          fileInput.click();
+        }
+      });
     }
 
     async function loadScanRegistration() {
@@ -367,8 +545,10 @@
       els.sessionStatus.textContent = `${data.organization.name} - ${data.organization.subscriptionStatus}`;
       els.logoutBtn.classList.remove('hidden');
       els.dashboard.classList.remove('hidden');
+      showDashboardShell();
       fillBackSettingsForm();
       if (data.templates) renderTemplateGallery(data.templates, data.organization.templateId || 'sample');
+      setLogoValue('dashboard', data.organization.logo || '');
       applySubscriptionLock(data.locked);
       if (data.locked) {
         return;
@@ -418,12 +598,26 @@
       alert('Back card settings saved.');
     }
 
+    async function saveBranding() {
+      const data = await api('/api/org/branding', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ logo: els.dashboardLogoValue.value, templateId: els.templateSelect.value })
+      });
+      state.org = data.organization;
+      setLogoValue('dashboard', state.org.logo || '');
+      renderTemplateGallery(data.templates, state.org.templateId || 'sample');
+      alert('Branding saved.');
+    }
+
     els.orgRegisterForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const payload = Object.fromEntries(new FormData(els.orgRegisterForm).entries());
       try {
         const data = await api('/api/organizations/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        rememberRegisteredOrganization();
         alert(`${data.organization.name} registered. Log in to preview templates and available features before subscribing.`);
+        showLogin();
       } catch (error) { alert(friendlyError(error)); }
     });
 
@@ -452,7 +646,18 @@
       catch (error) { alert(friendlyError(error)); }
     });
 
+    els.brandingForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await saveBranding(); }
+      catch (error) { alert(friendlyError(error)); }
+    });
+
     els.roleType.addEventListener('change', renderDynamicFields);
+    els.startRegisterBtn.addEventListener('click', showRegistration);
+    els.alreadyRegisteredBtn.addEventListener('click', () => {
+      rememberRegisteredOrganization();
+      showLogin();
+    });
     document.getElementById('loadMasterBtn').addEventListener('click', () => loadMasterCard().catch((error) => alert(friendlyError(error))));
     document.getElementById('printMasterBtn').addEventListener('click', () => window.print());
     document.getElementById('refreshCardsBtn').addEventListener('click', () => loadCards().catch((error) => alert(friendlyError(error))));
@@ -470,6 +675,9 @@
       } catch (error) { alert(friendlyError(error)); }
     });
 
+    setupLogoUploader('register');
+    setupLogoUploader('dashboard');
+    initializeEntryView();
     loadSetup().catch((error) => alert(friendlyError(error)));
   </script>
 </body>

@@ -1012,6 +1012,42 @@ async function handleApi(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/org/branding' && req.method === 'PATCH') {
+    const sessionOrg = await currentOrganization(req);
+    if (!sessionOrg) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const logo = String(payload.logo || '').trim();
+      const templateId = cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : (sessionOrg.templateId || 'sample');
+      if (logo && !/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(logo) && !/^https?:\/\//i.test(logo)) {
+        sendJson(res, 400, { error: 'Logo must be an uploaded image data URL or a valid image URL.' });
+        return true;
+      }
+      if (logo.length > 2_500_000) {
+        sendJson(res, 413, { error: 'Logo is too large. Upload a smaller image.' });
+        return true;
+      }
+      const organizations = await loadOrganizations();
+      const org = organizations.find((item) => item.id === sessionOrg.id);
+      if (!org) {
+        sendJson(res, 404, { error: 'Organization not found.' });
+        return true;
+      }
+      org.logo = logo;
+      org.templateId = templateId;
+      org.updatedAt = new Date().toISOString();
+      await saveOrganizations(organizations);
+      await appendAudit('organization-branding-updated', { id: org.id }, org.email);
+      sendJson(res, 200, { organization: publicOrganization(org), templates: cardTemplates });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to update branding.' });
+    }
+    return true;
+  }
+
   if (url.pathname === '/api/organizations' && req.method === 'GET') {
     const admin = currentAdmin(req);
     if (!admin || admin.role !== 'super-admin') {
