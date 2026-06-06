@@ -123,7 +123,18 @@
       <form class="panel hidden" id="orgRegisterForm">
         <h2>Register Organization</h2>
         <label>Organization name<input name="name" required></label>
-        <label>Organization type<select name="type" id="orgType"></select></label>
+        <label>Organization type
+          <select name="type" id="orgType">
+            <option value="company">Company</option>
+            <option value="school">School</option>
+            <option value="university">University</option>
+            <option value="hospital">Hospital</option>
+            <option value="ngo">NGO/Church</option>
+            <option value="security">Security Agency</option>
+            <option value="government">Government Office</option>
+            <option value="custom">Custom Organization</option>
+          </select>
+        </label>
         <label>Business/registration number<input name="businessNumber" required></label>
         <label>Organization email<input name="email" type="email" required></label>
         <label>Phone<input name="phone" required></label>
@@ -134,8 +145,6 @@
           <div class="upload-row">
             <img class="logo-preview hidden" id="registerLogoPreview" alt="">
             <div class="logo-copy">
-              <strong>Upload organization logo</strong>
-              <span>PNG, JPG, WEBP, GIF, or SVG. Transparent PNG works best.</span>
               <div class="logo-actions">
                 <button type="button" class="secondary" data-logo-pick="register">Choose Logo</button>
                 <button type="button" class="secondary hidden" data-logo-remove="register">Remove</button>
