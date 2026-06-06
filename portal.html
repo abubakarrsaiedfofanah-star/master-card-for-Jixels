@@ -89,7 +89,7 @@
   <header>
     <div class="wrap header-inner">
       <div>
-        <h1>MAPPHEX ID CARDS PORTAL</h1>
+        <h1 id="portalTitle">MAPPHEX ID CARDS PORTAL</h1>
       </div>
       <div class="row"><span class="status" id="sessionStatus">Not logged in</span><button class="secondary hidden" id="logoutBtn">Logout</button></div>
     </div>
@@ -282,6 +282,7 @@
     const state = { token: '', org: null, rules: null, cards: [], masterToken: new URLSearchParams(location.search).get('master') || '' };
     const els = {
       sessionStatus: document.getElementById('sessionStatus'), logoutBtn: document.getElementById('logoutBtn'),
+      portalTitle: document.getElementById('portalTitle'),
       portalIntro: document.getElementById('portalIntro'), entryArea: document.getElementById('entryArea'), startRegisterBtn: document.getElementById('startRegisterBtn'),
       alreadyRegisteredBtn: document.getElementById('alreadyRegisteredBtn'), loginPanel: document.getElementById('loginPanel'), publicTemplatePreview: document.getElementById('publicTemplatePreview'),
       orgType: document.getElementById('orgType'), templateGallery: document.getElementById('templateGallery'),
@@ -310,18 +311,24 @@
     function hasRegisteredOrganization() { return localStorage.getItem('mapphexOrganizationRegistered') === 'true'; }
     function rememberRegisteredOrganization() { localStorage.setItem('mapphexOrganizationRegistered', 'true'); }
     function showIntro() {
+      document.title = 'MAPPHEX ID CARDS PORTAL';
+      els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
       els.portalIntro.classList.remove('hidden');
       els.entryArea.classList.add('hidden');
       els.orgRegisterForm.classList.add('hidden');
       els.loginPanel.classList.add('hidden');
     }
     function showRegistration() {
+      document.title = 'MAPPHEX ID CARDS PORTAL';
+      els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
       els.portalIntro.classList.add('hidden');
       els.entryArea.classList.remove('hidden');
       els.orgRegisterForm.classList.remove('hidden');
       els.loginPanel.classList.add('hidden');
     }
     function showLogin() {
+      document.title = 'MAPPHEX ID CARDS PORTAL';
+      els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
       els.portalIntro.classList.add('hidden');
       els.entryArea.classList.remove('hidden');
       els.orgRegisterForm.classList.add('hidden');
@@ -461,6 +468,8 @@
         const data = await api(`/api/org/register-info?token=${encodeURIComponent(state.masterToken)}`);
         state.org = data.organization;
         state.rules = data.rules;
+        document.title = `${data.organization.name} Registration`;
+        els.portalTitle.textContent = `${data.organization.name} Registration`;
         els.scanNotice.textContent = `${data.organization.name} is active. Choose the correct registration type and submit for admin approval.`;
         els.applyForm.classList.remove('hidden');
         els.roleType.innerHTML = Object.entries(data.rules.roles).map(([key, role]) => `<option value="${key}">${role.label}</option>`).join('');
@@ -544,6 +553,8 @@
     function setOrgSession(data) {
       state.token = data.token;
       state.org = data.organization;
+      document.title = `${data.organization.name} ID Cards Portal`;
+      els.portalTitle.textContent = `${data.organization.name} ID CARDS PORTAL`;
       els.sessionStatus.textContent = `${data.organization.name} - ${data.organization.subscriptionStatus}`;
       els.logoutBtn.classList.remove('hidden');
       els.dashboard.classList.remove('hidden');

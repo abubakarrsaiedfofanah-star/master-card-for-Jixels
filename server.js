@@ -421,10 +421,11 @@ function workerClaimUrl(req, token) {
 function sendWorkerApprovalEmail(req, card) {
   if (!card.email) return Promise.resolve(false);
   const link = workerClaimUrl(req, card.verificationToken);
+  const issuer = String(card.organizationName || 'MAPPHEX').trim() || 'MAPPHEX';
   return sendEmail(
     card.email,
-    'Your MAPPHEX ID card is ready',
-    `Hello ${card.name},\n\nYour MAPPHEX ID card has been approved and is ready.\n\nOpen this link to view, print, or download your ID card:\n${link}\n\nMAPPHEX`
+    `Your ${issuer} ID card is ready`,
+    `Hello ${card.name},\n\nYour ${issuer} ID card has been approved and is ready.\n\nOpen this link to view, print, or download your ID card:\n${link}\n\n${issuer}`
   ).then(() => true);
 }
 

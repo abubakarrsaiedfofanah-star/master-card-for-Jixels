@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Jixels Admin</title>
+  <title>MAPPHEX Super Admin</title>
   <script>
     if (window.location.protocol === 'file:') {
       window.location.replace('https://master-card-for-jixels.onrender.com/admin');
@@ -266,7 +266,7 @@
   <header class="admin-header">
     <div class="admin-header-inner">
       <div class="admin-brand">
-        <strong>Jixels Admin Panel</strong>
+        <strong>MAPPHEX Super Admin</strong>
         <span>ID registration, approval, and verification control</span>
       </div>
       <div class="header-actions">
@@ -277,7 +277,7 @@
   </header>
   <main>
     <div class="topbar">
-      <h1>Jixels Admin</h1>
+      <h1>MAPPHEX Super Admin</h1>
       <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
         <div class="password-wrap">
@@ -411,7 +411,7 @@
         <p id="cardEmpty">Approve a worker or click View Card on an approved record to show the ID card here.</p>
         <div class="card-stage hidden" id="cardStage">
           <article class="id-card">
-            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
             <div class="front-shape"></div>
             <div class="photo-ring"><span id="cardPhotoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
             <div class="front-info">
@@ -425,18 +425,18 @@
             <div class="qr-box"><img id="cardQr" crossorigin="anonymous" alt="Worker verification QR"></div>
             <div class="back-text">
               <div>If found please return to:</div>
-              <div class="indent">Jixels Technologies Ltd</div>
+              <div class="indent">MAPPHEX</div>
               <div class="indent">P.O BOX 480-50101 Butere.</div>
               <div class="indent">Phone:+254 713 111 666</div>
               <div class="responsibility-title">Cardholder Responsibilities:</div>
               <ol class="rules">
-                <li>This ID card is the property of Jixels Technologies Ltd.</li>
+                <li>This ID card is the property of MAPPHEX.</li>
                 <li>Use of this card is strictly for the person to whom it is issued.</li>
                 <li>Must be displayed at all times while on company premises.</li>
                 <li>Report lost/stolen cards immediately to HR.</li>
               </ol>
             </div>
-            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
+            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
           </article>
         </div>
       </div>
@@ -713,7 +713,7 @@
       }
       els.cardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
       const link = claimUrl(card.verificationToken || '');
-      const message = `Hello ${card.name || 'there'}, your Jixels ID card has been approved. Open this link to view/download your ID card: ${link}`;
+      const message = `Hello ${card.name || 'there'}, your MAPPHEX ID card has been approved. Open this link to view/download your ID card: ${link}`;
       els.notifyText.textContent = `Notify ${card.name || 'worker'} that the ID card is ready.`;
       els.workerClaimLink.href = link;
       els.workerClaimLink.textContent = link;
@@ -1100,7 +1100,7 @@
     }
   </script>
   <footer class="admin-footer">
-    <div class="admin-footer-inner">Jixels Technologies Ltd admin system</div>
+    <div class="admin-footer-inner">MAPPHEX super admin system</div>
   </footer>
 </body>
 </html>
