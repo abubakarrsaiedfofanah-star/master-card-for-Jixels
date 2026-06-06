@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MAPPHEX Organization Portal</title>
+  <style>
+    :root { --blue: #357fbd; --gold: #f0c51b; --ink: #202938; --muted: #657489; --line: #d9e0ea; --page: #eef2f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+    header { background: var(--blue); color: #fff; }
+    .wrap { width: min(1180px, calc(100% - 28px)); margin: 0 auto; }
+    .header-inner { min-height: 68px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 22px; }
+    main { padding: 22px 0 40px; }
+    .grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+    .panel h2 { font-size: 18px; }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+    input, select, textarea { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 10px; font: inherit; }
+    textarea { min-height: 76px; resize: vertical; }
+    button, .button { border: 0; border-radius: 6px; padding: 10px 12px; background: var(--blue); color: #fff; font-weight: 800; cursor: pointer; text-decoration: none; text-align: center; }
+    button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .status { padding: 7px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); font-size: 12px; font-weight: 800; }
+    .notice { border: 1px solid #bfdbfe; background: #eff6ff; color: #16395f; border-radius: 8px; padding: 11px; font-weight: 700; line-height: 1.4; }
+    .danger { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+    .hidden { display: none !important; }
+    .templates { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: 8px; }
+    .template { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #f8fafc; font-size: 12px; cursor: pointer; }
+    .template input { width: auto; margin-right: 6px; }
+    .feature-list { margin: 0; padding-left: 18px; display: grid; gap: 7px; font-weight: 700; }
+    .master-card { width: 330px; height: 520px; border: 1px solid var(--line); border-radius: 22px; background: #fff; overflow: hidden; position: relative; box-shadow: 0 10px 22px rgba(31,47,68,.13); }
+    .master-logo { position: absolute; top: 22px; left: 42px; width: 246px; height: 112px; object-fit: contain; }
+    .master-band { position: absolute; left: 24px; right: 24px; top: 158px; height: 166px; border-radius: 16px; background: var(--blue); color: #fff; padding: 18px; display: grid; align-content: center; gap: 8px; }
+    .master-band strong { color: var(--gold); font-size: 24px; }
+    .master-meta { position: absolute; left: 34px; right: 34px; top: 346px; display: grid; gap: 8px; font-size: 13px; font-weight: 800; }
+    .qr { width: 106px; height: 106px; border: 1px solid var(--line); background: #fff; padding: 5px; justify-self: center; }
+    .qr img { width: 100%; height: 100%; object-fit: contain; }
+    .card-stage { display: grid; grid-template-columns: repeat(2, 330px); gap: 18px; justify-content: start; overflow-x: auto; }
+    .id-card { width: 330px; height: 520px; background: #fff; border: 1px solid var(--line); border-radius: 22px; position: relative; overflow: hidden; box-shadow: 0 10px 22px rgba(31,47,68,.13); }
+    .logo-front { position: absolute; top: 20px; left: 40px; width: 250px; height: 124px; object-fit: contain; }
+    .front-shape { position: absolute; left: 24px; top: 328px; width: 282px; height: 130px; background: var(--blue); border-radius: 18px; }
+    .front-shape::before { content: ""; position: absolute; left: 18px; right: 18px; top: 11px; height: 3px; background: var(--gold); border-radius: 10px; }
+    .photo-ring { position: absolute; left: 79px; top: 148px; width: 172px; height: 172px; border-radius: 50%; border: 5px solid var(--gold); background: #f8fbff; display: grid; place-items: center; overflow: hidden; z-index: 1; }
+    .photo-ring img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .photo-ring span { color: #8ca3be; font-size: 26px; font-weight: 800; }
+    .front-info { position: absolute; left: 44px; right: 44px; top: 345px; z-index: 2; }
+    .detail-line { display: grid; grid-template-columns: 74px 1fr; gap: 7px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.18); }
+    .detail-label { color: rgba(255,255,255,.78); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .person-name { color: var(--gold); font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+    .id-number, .person-role { color: #fff; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+    .card-qr { position: absolute; left: 93px; top: 28px; width: 144px; height: 144px; padding: 8px; border: 2px solid var(--blue); background: #fff; }
+    .card-qr img { width: 100%; height: 100%; object-fit: contain; }
+    .back-text { position: absolute; left: 34px; right: 30px; top: 132px; font-weight: 700; font-size: 13px; line-height: 1.34; }
+    .back-text .indent { margin-left: 35px; }
+    .responsibility-title { color: var(--blue); margin-top: 16px; font-weight: 900; }
+    .rules { margin: 6px 0 0 18px; padding: 0; display: grid; gap: 5px; }
+    .logo-back { position: absolute; left: 72px; bottom: 24px; width: 186px; height: 70px; object-fit: contain; opacity: .9; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; min-width: 900px; border-collapse: collapse; background: #fff; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 9px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; }
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } .templates { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media print { header, .no-print, .panel:not(#masterPanel):not(#idPreviewPanel) { display: none !important; } body { background: #fff; } #masterPanel, #idPreviewPanel { border: 0; padding: 0; } .master-card, .id-card { box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap header-inner">
+      <div>
+        <h1>MAPPHEX Organization Portal</h1>
+        <div>Subscriptions, master cards, registrations, and approvals</div>
+      </div>
+      <div class="row"><span class="status" id="sessionStatus">Not logged in</span><button class="secondary hidden" id="logoutBtn">Logout</button></div>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="panel hidden" id="scanPanel">
+      <h2>Register Under Organization</h2>
+      <div id="scanNotice" class="notice">Loading master card...</div>
+      <form id="applyForm" class="hidden">
+        <label>Register as<select id="roleType"></select></label>
+        <div id="dynamicFields"></div>
+        <button type="submit">Submit Registration</button>
+      </form>
+    </section>
+
+    <section class="grid no-print">
+      <form class="panel" id="orgRegisterForm">
+        <h2>Register Organization</h2>
+        <label>Organization name<input name="name" required></label>
+        <label>Organization type<select name="type" id="orgType"></select></label>
+        <label>Business/registration number<input name="businessNumber" required></label>
+        <label>Organization email<input name="email" type="email" required></label>
+        <label>Phone<input name="phone" required></label>
+        <label>Owner/admin name<input name="ownerName"></label>
+        <label>Password<input name="password" type="password" minlength="8" required></label>
+        <label>Logo URL or data image<textarea name="logo" placeholder="Paste logo data/url for now"></textarea></label>
+        <button type="submit">Create Organization</button>
+      </form>
+
+      <div class="panel">
+        <h2>Organization Admin Login</h2>
+        <form id="loginForm" class="row">
+          <input name="email" type="email" placeholder="Organization email" required>
+          <input name="password" type="password" placeholder="Password" required>
+          <button type="submit">Login</button>
+        </form>
+        <div id="loginNotice" class="notice hidden"></div>
+      </div>
+    </section>
+
+    <section class="grid hidden" id="dashboard">
+      <div class="panel">
+        <h2>Templates and Features</h2>
+        <div id="subscriptionNotice" class="notice hidden"></div>
+        <div id="templateGallery" class="templates"></div>
+        <ul class="feature-list">
+          <li>Choose one ID card front template for your organization.</li>
+          <li>Use your organization name, business number, and logo.</li>
+          <li>Edit the back-card return address, phone, and lost-card instructions.</li>
+          <li>Approve registrations from your master card QR after subscription.</li>
+        </ul>
+      </div>
+
+      <div class="panel" id="masterPanel" data-requires-subscription>
+        <h2>Master Card</h2>
+        <article class="master-card hidden" id="masterCard">
+          <img class="master-logo" id="masterLogo" alt="">
+          <div class="master-band">
+            <strong>MASTER CARD</strong>
+            <span id="masterOrgName"></span>
+            <span id="masterOrgType"></span>
+          </div>
+          <div class="master-meta">
+            <span id="masterNumber"></span>
+            <span id="masterBusiness"></span>
+            <div class="qr"><img id="masterQr" alt="Master QR"></div>
+          </div>
+        </article>
+        <div class="row no-print">
+          <button type="button" id="loadMasterBtn">Load Master Card</button>
+          <button type="button" class="secondary" id="printMasterBtn">Print Master Card</button>
+        </div>
+      </div>
+
+      <div class="panel" data-requires-subscription>
+        <h2>Own ID Card Records</h2>
+        <div class="row">
+          <button type="button" id="refreshCardsBtn">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Phone</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="cardsBody"><tr><td colspan="7">Login to view records.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <form class="panel" id="backSettingsForm" data-requires-subscription>
+        <h2>Back Card Settings</h2>
+        <label>Return title<input name="returnTitle" required></label>
+        <label>Return name/company/school<input name="returnName" required></label>
+        <label>Address line 1<input name="addressLine1"></label>
+        <label>Address line 2<input name="addressLine2"></label>
+        <label>Phone number<input name="phone"></label>
+        <label>Return department/person<input name="returnDesk" required></label>
+        <label>Responsibilities title<input name="responsibilityTitle" required></label>
+        <label>Rule 1<input name="rule1" required></label>
+        <label>Rule 2<input name="rule2" required></label>
+        <label>Rule 3<input name="rule3" required></label>
+        <label>Lost card instruction<input name="lostInstruction" required></label>
+        <button type="submit">Save Back Settings</button>
+      </form>
+
+      <div class="panel" id="idPreviewPanel" data-requires-subscription>
+        <h2>Approved ID Card Preview</h2>
+        <p id="previewEmpty">Approve a record, then click View Card to preview the front and editable back.</p>
+        <div class="card-stage hidden" id="idCardStage">
+          <article class="id-card">
+            <img class="logo-front" id="idFrontLogo" alt="">
+            <div class="front-shape"></div>
+            <div class="photo-ring"><span id="idPhotoPlaceholder">PHOTO</span><img id="idPhoto" class="hidden" alt=""></div>
+            <div class="front-info">
+              <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name" id="idCardName"></span></div>
+              <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="idCardNumber"></span></div>
+              <div class="detail-line"><span class="detail-label">Role:</span><span class="person-role" id="idCardRole"></span></div>
+            </div>
+          </article>
+          <article class="id-card">
+            <div class="card-qr"><img id="idCardQr" alt="ID verification QR"></div>
+            <div class="back-text">
+              <div id="backReturnTitle"></div>
+              <div class="indent" id="backReturnName"></div>
+              <div class="indent" id="backAddress1"></div>
+              <div class="indent" id="backAddress2"></div>
+              <div class="indent" id="backPhone"></div>
+              <div class="indent" id="backDesk"></div>
+              <div class="responsibility-title" id="backResponsibilityTitle"></div>
+              <ol class="rules">
+                <li id="backRule1"></li>
+                <li id="backRule2"></li>
+                <li id="backRule3"></li>
+                <li id="backLostInstruction"></li>
+              </ol>
+            </div>
+            <img class="logo-back" id="idBackLogo" alt="">
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { token: '', org: null, rules: null, cards: [], masterToken: new URLSearchParams(location.search).get('master') || '' };
+    const els = {
+      sessionStatus: document.getElementById('sessionStatus'), logoutBtn: document.getElementById('logoutBtn'),
+      orgType: document.getElementById('orgType'), templateGallery: document.getElementById('templateGallery'),
+      orgRegisterForm: document.getElementById('orgRegisterForm'), loginForm: document.getElementById('loginForm'), loginNotice: document.getElementById('loginNotice'),
+      dashboard: document.getElementById('dashboard'), subscriptionNotice: document.getElementById('subscriptionNotice'), masterCard: document.getElementById('masterCard'),
+      masterLogo: document.getElementById('masterLogo'), masterOrgName: document.getElementById('masterOrgName'), masterOrgType: document.getElementById('masterOrgType'),
+      masterNumber: document.getElementById('masterNumber'), masterBusiness: document.getElementById('masterBusiness'), masterQr: document.getElementById('masterQr'),
+      cardsBody: document.getElementById('cardsBody'), scanPanel: document.getElementById('scanPanel'), scanNotice: document.getElementById('scanNotice'),
+      applyForm: document.getElementById('applyForm'), roleType: document.getElementById('roleType'), dynamicFields: document.getElementById('dynamicFields'),
+      backSettingsForm: document.getElementById('backSettingsForm'), previewEmpty: document.getElementById('previewEmpty'), idCardStage: document.getElementById('idCardStage'),
+      idFrontLogo: document.getElementById('idFrontLogo'), idBackLogo: document.getElementById('idBackLogo'), idPhoto: document.getElementById('idPhoto'),
+      idPhotoPlaceholder: document.getElementById('idPhotoPlaceholder'), idCardName: document.getElementById('idCardName'), idCardNumber: document.getElementById('idCardNumber'),
+      idCardRole: document.getElementById('idCardRole'), idCardQr: document.getElementById('idCardQr'), backReturnTitle: document.getElementById('backReturnTitle'),
+      backReturnName: document.getElementById('backReturnName'), backAddress1: document.getElementById('backAddress1'), backAddress2: document.getElementById('backAddress2'),
+      backPhone: document.getElementById('backPhone'), backDesk: document.getElementById('backDesk'), backResponsibilityTitle: document.getElementById('backResponsibilityTitle'),
+      backRule1: document.getElementById('backRule1'), backRule2: document.getElementById('backRule2'), backRule3: document.getElementById('backRule3'), backLostInstruction: document.getElementById('backLostInstruction')
+    };
+
+    function headers() { return { Authorization: `Bearer ${state.token}`, 'Content-Type': 'application/json' }; }
+    function qrUrl(value) { return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(value)}`; }
+    function niceLabel(key) { return key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()); }
+    function verificationUrl(token) { return `${window.location.origin}/?token=${encodeURIComponent(token)}`; }
+    function friendlyError(error) {
+      if (error && /failed to fetch/i.test(error.message || '')) {
+        return 'Could not reach MAPPHEX server. Open this page through the running app URL, not by double-clicking the HTML file, and confirm the server is online.';
+      }
+      return error.message || 'Request failed.';
+    }
+    async function api(path, options = {}) {
+      let response;
+      try {
+        response = await fetch(path, options);
+      } catch (error) {
+        throw new Error(friendlyError(error));
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Request failed.');
+      return data;
+    }
+
+    async function loadSetup() {
+      const data = await api('/api/templates');
+      els.orgType.innerHTML = Object.entries(data.organizationTypes).map(([key, rule]) => `<option value="${key}">${rule.label}</option>`).join('');
+      renderTemplateGallery(data.templates, 'sample');
+      if (state.masterToken) await loadScanRegistration();
+    }
+
+    function renderTemplateGallery(templates, selectedId) {
+      els.templateGallery.innerHTML = (templates || []).map((template) => `<label class="template"><input type="radio" name="templatePreview" value="${template.id}" ${template.id === selectedId ? 'checked' : ''} disabled>${template.name}<br>${template.description}</label>`).join('');
+    }
+
+    function setImage(element, src) {
+      if (src) {
+        element.src = src;
+        element.classList.remove('hidden');
+      } else {
+        element.removeAttribute('src');
+        element.classList.add('hidden');
+      }
+    }
+
+    async function loadScanRegistration() {
+      els.scanPanel.classList.remove('hidden');
+      try {
+        const data = await api(`/api/org/register-info?token=${encodeURIComponent(state.masterToken)}`);
+        state.org = data.organization;
+        state.rules = data.rules;
+        els.scanNotice.textContent = `${data.organization.name} is active. Choose the correct registration type and submit for admin approval.`;
+        els.applyForm.classList.remove('hidden');
+        els.roleType.innerHTML = Object.entries(data.rules.roles).map(([key, role]) => `<option value="${key}">${role.label}</option>`).join('');
+        renderDynamicFields();
+      } catch (error) {
+        els.scanNotice.classList.add('danger');
+        els.scanNotice.textContent = error.message;
+      }
+    }
+
+    function renderDynamicFields() {
+      const role = state.rules.roles[els.roleType.value];
+      const fields = role.required.concat(role.optional || []);
+      els.dynamicFields.innerHTML = fields.map((field) => {
+        const type = field === 'photo' ? 'url' : (field === 'email' ? 'email' : (field === 'dateOfBirth' ? 'date' : 'text'));
+        return `<label>${niceLabel(field)}<input name="${field}" type="${type}" ${role.required.includes(field) ? 'required' : ''}></label>`;
+      }).join('');
+    }
+
+    function fillBackSettingsForm() {
+      const settings = state.org?.backSettings || {};
+      for (const element of els.backSettingsForm.elements) {
+        if (element.name && settings[element.name] !== undefined) element.value = settings[element.name] || '';
+      }
+    }
+
+    function renderBackSettings() {
+      const settings = state.org?.backSettings || {};
+      els.backReturnTitle.textContent = settings.returnTitle || '';
+      els.backReturnName.textContent = settings.returnName || '';
+      els.backAddress1.textContent = settings.addressLine1 || '';
+      els.backAddress2.textContent = settings.addressLine2 || '';
+      els.backPhone.textContent = settings.phone ? `Phone: ${settings.phone}` : '';
+      els.backDesk.textContent = settings.returnDesk ? `Return to: ${settings.returnDesk}` : '';
+      els.backResponsibilityTitle.textContent = settings.responsibilityTitle || 'Cardholder Responsibilities:';
+      els.backRule1.textContent = settings.rule1 || '';
+      els.backRule2.textContent = settings.rule2 || '';
+      els.backRule3.textContent = settings.rule3 || '';
+      els.backLostInstruction.textContent = settings.lostInstruction || '';
+    }
+
+    function showIdCard(card) {
+      if (!card || (card.status || 'Pending') !== 'Approved') {
+        alert('Approve this record before viewing the ID card.');
+        return;
+      }
+      const logo = state.org?.logo || '';
+      els.previewEmpty.classList.add('hidden');
+      els.idCardStage.classList.remove('hidden');
+      setImage(els.idFrontLogo, logo);
+      setImage(els.idBackLogo, logo);
+      els.idCardName.textContent = card.name || '';
+      els.idCardNumber.textContent = card.id || '';
+      els.idCardRole.textContent = card.position || card.roleType || '';
+      if (card.photo) {
+        els.idPhoto.src = card.photo;
+        els.idPhoto.classList.remove('hidden');
+        els.idPhotoPlaceholder.classList.add('hidden');
+      } else {
+        els.idPhoto.removeAttribute('src');
+        els.idPhoto.classList.add('hidden');
+        els.idPhotoPlaceholder.classList.remove('hidden');
+      }
+      els.idCardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
+      renderBackSettings();
+    }
+
+    function applySubscriptionLock(locked) {
+      document.querySelectorAll('[data-requires-subscription]').forEach((panel) => {
+        panel.classList.toggle('hidden', Boolean(locked));
+      });
+      if (locked) {
+        els.subscriptionNotice.textContent = 'Subscription inactive. You can preview templates and features after login, but master cards, registrations, approvals, and printing unlock after payment.';
+        els.subscriptionNotice.classList.add('danger');
+        els.subscriptionNotice.classList.remove('hidden');
+      } else {
+        els.subscriptionNotice.classList.add('hidden');
+      }
+    }
+
+    function setOrgSession(data) {
+      state.token = data.token;
+      state.org = data.organization;
+      els.sessionStatus.textContent = `${data.organization.name} - ${data.organization.subscriptionStatus}`;
+      els.logoutBtn.classList.remove('hidden');
+      els.dashboard.classList.remove('hidden');
+      fillBackSettingsForm();
+      if (data.templates) renderTemplateGallery(data.templates, data.organization.templateId || 'sample');
+      applySubscriptionLock(data.locked);
+      if (data.locked) {
+        return;
+      } else {
+        loadCards().catch((error) => alert(error.message));
+      }
+    }
+
+    async function loadMasterCard() {
+      const data = await api('/api/org/master-card', { headers: headers() });
+      const card = data.masterCard;
+      els.masterCard.classList.remove('hidden');
+      setImage(els.masterLogo, card.organization.logo || '');
+      els.masterOrgName.textContent = card.organization.name;
+      els.masterOrgType.textContent = card.organization.typeLabel;
+      els.masterNumber.textContent = `Master No: ${card.number}`;
+      els.masterBusiness.textContent = `Reg No: ${card.organization.businessNumber}`;
+      els.masterQr.src = qrUrl(card.qrUrl);
+    }
+
+    async function loadCards() {
+      const data = await api('/api/org/cards', { headers: headers() });
+      state.cards = data.cards || [];
+      if (!data.cards.length) {
+        els.cardsBody.innerHTML = '<tr><td colspan="7">No registrations yet.</td></tr>';
+        return;
+      }
+      els.cardsBody.innerHTML = data.cards.map((card) => `
+        <tr>
+          <td>${card.id}</td><td>${card.name}</td><td>${card.roleType || card.position}</td>
+          <td>${card.phone || ''}</td><td>${card.email || ''}</td><td>${card.status || 'Pending'}</td>
+          <td class="row">
+            ${(card.status || 'Pending') === 'Approved' ? `<button data-id="${card.id}" data-action="view">View Card</button>` : ''}
+            <button data-id="${card.id}" data-status="Approved">Approve</button>
+            <button data-id="${card.id}" data-status="Rejected" class="secondary">Reject</button>
+            <button data-id="${card.id}" data-status="Inactive" class="secondary">Inactive</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function saveBackSettings() {
+      const backSettings = Object.fromEntries(new FormData(els.backSettingsForm).entries());
+      const data = await api('/api/org/back-settings', { method: 'PATCH', headers: headers(), body: JSON.stringify({ backSettings }) });
+      state.org = data.organization;
+      fillBackSettingsForm();
+      renderBackSettings();
+      alert('Back card settings saved.');
+    }
+
+    els.orgRegisterForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = Object.fromEntries(new FormData(els.orgRegisterForm).entries());
+      try {
+        const data = await api('/api/organizations/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        alert(`${data.organization.name} registered. Log in to preview templates and available features before subscribing.`);
+      } catch (error) { alert(friendlyError(error)); }
+    });
+
+    els.loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = Object.fromEntries(new FormData(els.loginForm).entries());
+      try { setOrgSession(await api('/api/org-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })); }
+      catch (error) { els.loginNotice.textContent = friendlyError(error); els.loginNotice.classList.remove('hidden'); }
+    });
+
+    els.applyForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const fields = Object.fromEntries(new FormData(els.applyForm).entries());
+      delete fields.roleType;
+      try {
+        await api('/api/org/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ masterToken: state.masterToken, roleType: els.roleType.value, fields }) });
+        alert('Registration submitted. Organization admin must approve it.');
+        els.applyForm.reset();
+        renderDynamicFields();
+      } catch (error) { alert(friendlyError(error)); }
+    });
+
+    els.backSettingsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await saveBackSettings(); }
+      catch (error) { alert(friendlyError(error)); }
+    });
+
+    els.roleType.addEventListener('change', renderDynamicFields);
+    document.getElementById('loadMasterBtn').addEventListener('click', () => loadMasterCard().catch((error) => alert(friendlyError(error))));
+    document.getElementById('printMasterBtn').addEventListener('click', () => window.print());
+    document.getElementById('refreshCardsBtn').addEventListener('click', () => loadCards().catch((error) => alert(friendlyError(error))));
+    els.logoutBtn.addEventListener('click', () => location.reload());
+    els.cardsBody.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-id]');
+      if (!button) return;
+      try {
+        if (button.dataset.action === 'view') {
+          showIdCard(state.cards.find((card) => card.id === button.dataset.id));
+          return;
+        }
+        await api(`/api/org/cards/${encodeURIComponent(button.dataset.id)}/status`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ status: button.dataset.status }) });
+        await loadCards();
+      } catch (error) { alert(friendlyError(error)); }
+    });
+
+    loadSetup().catch((error) => alert(friendlyError(error)));
+  </script>
+</body>
+</html>

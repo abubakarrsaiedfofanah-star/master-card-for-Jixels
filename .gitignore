@@ -8,5 +8,6 @@ audit-log.json
 admin-config.json
 admin-config*.json
 master-config.json
+organizations-db.json
 client-registration-qr.png
 WhatsApp Image*.jpeg

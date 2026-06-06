@@ -27,6 +27,7 @@ const dbPath = path.join(root, 'cards-db.json');
 const auditPath = path.join(root, 'audit-log.json');
 const adminConfigPath = path.join(root, 'admin-config.json');
 const masterConfigPath = path.join(root, 'master-config.json');
+const organizationsPath = path.join(root, 'organizations-db.json');
 const adminUser = process.env.ADMIN_USER || 'admin';
 const adminPass = process.env.ADMIN_PASS || '1234';
 const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
@@ -43,7 +44,8 @@ function normalizeSupabaseUrl(value) {
 const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL);
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
-const resetFromEmail = String(process.env.RESET_FROM_EMAIL || 'Jixels ID Cards <onboarding@resend.dev>').trim();
+const resetFromEmail = String(process.env.RESET_FROM_EMAIL || 'MAPPHEX ID Cards <onboarding@resend.dev>').trim();
+const showResetCodeWhenEmailDisabled = /^true$/i.test(String(process.env.SHOW_RESET_CODE_WHEN_EMAIL_DISABLED || '').trim());
 const useSupabase = Boolean(supabaseUrl && supabaseServiceRoleKey);
 const sessions = new Map();
 const rateBuckets = new Map();
@@ -108,6 +110,20 @@ function localSaveCards(cards) {
   fs.writeFileSync(dbPath, JSON.stringify(cards, null, 2));
 }
 
+function localLoadOrganizations() {
+  if (!fs.existsSync(organizationsPath)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(organizationsPath, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function localSaveOrganizations(organizations) {
+  fs.writeFileSync(organizationsPath, JSON.stringify(organizations, null, 2));
+}
+
 function localLoadAudit() {
   if (!fs.existsSync(auditPath)) return [];
   try {
@@ -126,6 +142,11 @@ function fromSupabaseCard(row) {
   if (!row) return null;
   return {
     id: row.id,
+    organizationId: row.organization_id || '',
+    organizationName: row.organization_name || '',
+    cardType: row.card_type || 'user',
+    roleType: row.role_type || '',
+    fields: row.fields || {},
     name: row.name,
     location: row.location,
     branch: row.branch,
@@ -147,6 +168,11 @@ function fromSupabaseCard(row) {
 function toSupabaseCard(card) {
   return {
     id: card.id,
+    organization_id: card.organizationId || null,
+    organization_name: card.organizationName || null,
+    card_type: card.cardType || 'user',
+    role_type: card.roleType || null,
+    fields: card.fields || {},
     name: card.name,
     location: card.location,
     branch: card.branch,
@@ -180,6 +206,51 @@ function toSupabaseAudit(item) {
     card_id: item.cardId || item.card_id || '',
     actor: item.actor || 'system',
     created_at: item.at || item.created_at || new Date().toISOString()
+  };
+}
+
+function fromSupabaseOrganization(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    businessNumber: row.business_number,
+    email: row.email,
+    phone: row.phone,
+    logo: row.logo || '',
+    templateId: row.template_id || 'sample',
+    ownerName: row.owner_name || '',
+    salt: row.salt,
+    passwordHash: row.password_hash,
+    status: row.status,
+    subscriptionStatus: row.subscription_status,
+    backSettings: row.back_settings || {},
+    masterCard: row.master_card || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || ''
+  };
+}
+
+function toSupabaseOrganization(org) {
+  return {
+    id: org.id,
+    name: org.name,
+    type: org.type,
+    business_number: org.businessNumber,
+    email: org.email,
+    phone: org.phone,
+    logo: org.logo || '',
+    template_id: org.templateId || 'sample',
+    owner_name: org.ownerName || '',
+    salt: org.salt,
+    password_hash: org.passwordHash,
+    status: org.status || 'Pending',
+    subscription_status: org.subscriptionStatus || 'Pending',
+    back_settings: org.backSettings || {},
+    master_card: org.masterCard || null,
+    created_at: org.createdAt,
+    updated_at: org.updatedAt || null
   };
 }
 
@@ -249,6 +320,21 @@ async function saveAudit(log) {
   }
   await supabaseRequest('DELETE', 'audit_log', '?id=not.is.null');
   if (log.length) await supabaseRequest('POST', 'audit_log', '', log.map(toSupabaseAudit));
+}
+
+async function loadOrganizations() {
+  if (!useSupabase) return localLoadOrganizations();
+  const rows = await supabaseRequest('GET', 'organizations', '?select=*&order=created_at.asc');
+  return rows.map(fromSupabaseOrganization);
+}
+
+async function saveOrganizations(organizations) {
+  if (!useSupabase) {
+    localSaveOrganizations(organizations);
+    return;
+  }
+  await supabaseRequest('DELETE', 'organizations', '?id=not.is.null');
+  if (organizations.length) await supabaseRequest('POST', 'organizations', '', organizations.map(toSupabaseOrganization));
 }
 
 function hashPassword(password, salt) {
@@ -321,8 +407,8 @@ function sendEmail(to, subject, text) {
 function sendResetEmail(to, code) {
   return sendEmail(
     to,
-    'Jixels admin password reset code',
-    `Your Jixels admin password reset code is ${code}. It expires in 10 minutes.`
+    'MAPPHEX admin password reset code',
+    `Your MAPPHEX admin password reset code is ${code}. It expires in 10 minutes.`
   );
 }
 
@@ -337,8 +423,8 @@ function sendWorkerApprovalEmail(req, card) {
   const link = workerClaimUrl(req, card.verificationToken);
   return sendEmail(
     card.email,
-    'Your Jixels ID card is ready',
-    `Hello ${card.name},\n\nYour Jixels ID card has been approved and is ready.\n\nOpen this link to view, print, or download your ID card:\n${link}\n\nJixels Technologies Ltd`
+    'Your MAPPHEX ID card is ready',
+    `Hello ${card.name},\n\nYour MAPPHEX ID card has been approved and is ready.\n\nOpen this link to view, print, or download your ID card:\n${link}\n\nMAPPHEX`
   ).then(() => true);
 }
 
@@ -367,6 +453,262 @@ function checkRate(req, key, limit, windowMs) {
   fresh.push(now);
   rateBuckets.set(bucketKey, fresh);
   return fresh.length <= limit;
+}
+
+const cardTemplates = [
+  { id: 'sample', name: 'MAPPHEX sample', description: 'Current blue and gold sample card kept as Template 1.' },
+  { id: 'classic', name: 'Classic staff', description: 'Clean corporate staff card.' },
+  { id: 'school', name: 'School front', description: 'Student and teacher focused fields.' },
+  { id: 'university', name: 'University front', description: 'Faculty, department, and level layout.' },
+  { id: 'secure', name: 'Security badge', description: 'Role, branch, and verification focused.' }
+];
+
+const organizationTypeRules = {
+  company: {
+    label: 'Company',
+    roles: {
+      worker: {
+        label: 'Worker',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'position', 'department', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  school: {
+    label: 'School',
+    roles: {
+      student: {
+        label: 'Student',
+        idField: 'admissionNumber',
+        required: ['fullName', 'admissionNumber', 'className', 'academicYear', 'guardianPhone', 'dateOfBirth', 'photo'],
+        duplicateFields: ['admissionNumber'],
+        compoundDuplicate: ['guardianPhone', 'dateOfBirth']
+      },
+      teacher: {
+        label: 'Teacher/Staff',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'position', 'subjectOrDepartment', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  university: {
+    label: 'University',
+    roles: {
+      student: {
+        label: 'Student',
+        idField: 'studentNumber',
+        required: ['fullName', 'studentNumber', 'faculty', 'department', 'level', 'program', 'email', 'phone', 'photo'],
+        duplicateFields: ['studentNumber', 'email', 'phone'],
+        optional: ['nationalId']
+      },
+      lecturer: {
+        label: 'Lecturer/Staff',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'title', 'faculty', 'department', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  hospital: {
+    label: 'Hospital',
+    roles: {
+      staff: {
+        label: 'Staff',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'position', 'department', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  ngo: {
+    label: 'NGO/Church',
+    roles: {
+      member: {
+        label: 'Member/Worker',
+        idField: 'memberId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'memberId', 'position', 'unit', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'memberId']
+      }
+    }
+  },
+  security: {
+    label: 'Security Agency',
+    roles: {
+      officer: {
+        label: 'Officer',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'position', 'branch', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  government: {
+    label: 'Government Office',
+    roles: {
+      staff: {
+        label: 'Staff',
+        idField: 'staffId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'staffId', 'position', 'department', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'staffId']
+      }
+    }
+  },
+  custom: {
+    label: 'Custom Organization',
+    roles: {
+      member: {
+        label: 'Member',
+        idField: 'memberId',
+        required: ['fullName', 'email', 'phone', 'nationalId', 'memberId', 'position', 'photo'],
+        duplicateFields: ['email', 'phone', 'nationalId', 'memberId']
+      }
+    }
+  }
+};
+
+function normalizeKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function defaultBackSettings(org) {
+  const name = String(org?.name || 'Organization').trim() || 'Organization';
+  const phone = String(org?.phone || '').trim();
+  const type = String(org?.type || '').trim();
+  const returnDesk = type === 'school' ? 'School Administration Office' :
+    type === 'university' ? 'Registrar or Student Affairs Office' :
+    'HR Department';
+  return {
+    returnTitle: 'If found please return to:',
+    returnName: name,
+    addressLine1: '',
+    addressLine2: '',
+    phone,
+    returnDesk,
+    responsibilityTitle: 'Cardholder Responsibilities:',
+    rule1: `This ID card is the property of ${name}.`,
+    rule2: 'Use of this card is strictly for the person to whom it is issued.',
+    rule3: type === 'school' || type === 'university'
+      ? 'Must be displayed while on school/university premises.'
+      : 'Must be displayed at all times while on company premises.',
+    lostInstruction: `Report lost/stolen cards immediately to ${returnDesk}.`
+  };
+}
+
+function cleanBackSettings(input, org) {
+  const defaults = defaultBackSettings(org);
+  const cleaned = {};
+  for (const key of Object.keys(defaults)) {
+    const value = String(input?.[key] ?? defaults[key]).trim();
+    cleaned[key] = value.slice(0, key.startsWith('rule') || key === 'lostInstruction' ? 140 : 80);
+  }
+  return cleaned;
+}
+
+function publicOrganization(org) {
+  if (!org) return null;
+  return {
+    id: org.id,
+    name: org.name,
+    type: org.type,
+    typeLabel: organizationTypeRules[org.type]?.label || org.type,
+    businessNumber: org.businessNumber,
+    email: org.email,
+    phone: org.phone,
+    logo: org.logo || '',
+    templateId: org.templateId || 'sample',
+    backSettings: cleanBackSettings(org.backSettings || {}, org),
+    subscriptionStatus: org.subscriptionStatus || 'Pending',
+    status: org.status || 'Pending',
+    masterCard: org.masterCard ? {
+      number: org.masterCard.number,
+      status: org.masterCard.status,
+      issuedAt: org.masterCard.issuedAt
+    } : null,
+    createdAt: org.createdAt
+  };
+}
+
+function organizationIsActive(org) {
+  return Boolean(org && (org.status || 'Pending') === 'Active' && ['Active', 'Trial'].includes(org.subscriptionStatus || 'Pending'));
+}
+
+function requireActiveOrganization(res, org) {
+  if (organizationIsActive(org)) return true;
+  sendJson(res, 402, {
+    error: 'Subscription inactive. Renew subscription to access this organization admin panel.',
+    locked: true,
+    organization: publicOrganization(org)
+  });
+  return false;
+}
+
+async function currentOrganization(req) {
+  const session = currentAdmin(req);
+  if (!session || session.role !== 'organization-admin' || !session.organizationId) return null;
+  return (await loadOrganizations()).find((org) => org.id === session.organizationId) || null;
+}
+
+function getTypeRule(type, role) {
+  const typeRule = organizationTypeRules[type] || organizationTypeRules.custom;
+  const roleRule = typeRule.roles[role] || Object.values(typeRule.roles)[0];
+  return { typeRule, roleRule };
+}
+
+function validateProfileFields(org, role, fields) {
+  const { roleRule } = getTypeRule(org.type, role);
+  const missing = roleRule.required.filter((key) => !String(fields[key] || '').trim());
+  if (missing.length) return `Missing required field(s): ${missing.join(', ')}.`;
+  if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(fields.email).trim())) return 'Enter a valid email address.';
+  return '';
+}
+
+function createOrganizationId(organizations, name) {
+  const base = String(name || 'ORG').replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase() || 'ORG';
+  const existing = new Set(organizations.map((org) => org.id));
+  let sequence = organizations.length + 1;
+  let id = '';
+  do {
+    id = `${base}-${String(sequence).padStart(4, '0')}`;
+    sequence += 1;
+  } while (existing.has(id));
+  return id;
+}
+
+function createScopedCardId(cards, org, role, fields) {
+  const { roleRule } = getTypeRule(org.type, role);
+  const provided = String(fields[roleRule.idField] || '').trim();
+  if (provided) return provided;
+  const prefix = `${String(org.name || 'ORG').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || 'ORG'}/${String(role || 'USR').slice(0, 3).toUpperCase()}`;
+  const orgCards = cards.filter((card) => card.organizationId === org.id);
+  const existing = new Set(orgCards.map((card) => card.id));
+  let sequence = orgCards.length + 1;
+  let id = '';
+  do {
+    id = `${prefix}/${String(sequence).padStart(3, '0')}`;
+    sequence += 1;
+  } while (existing.has(id));
+  return id;
+}
+
+function duplicateRegistrationError(cards, org, role, fields, ignoreCardId = '') {
+  const { roleRule } = getTypeRule(org.type, role);
+  const orgCards = cards.filter((card) => card.organizationId === org.id && card.id !== ignoreCardId);
+  for (const field of roleRule.duplicateFields || []) {
+    const value = normalizeKey(fields[field]);
+    if (!value) continue;
+    if (orgCards.some((card) => normalizeKey(card.fields?.[field]) === value)) {
+      return `${field} is already registered in this organization.`;
+    }
+  }
+  if (roleRule.compoundDuplicate?.length) {
+    const values = roleRule.compoundDuplicate.map((field) => normalizeKey(fields[field]));
+    if (values.every(Boolean) && orgCards.some((card) => roleRule.compoundDuplicate.every((field, index) => normalizeKey(card.fields?.[field]) === values[index]))) {
+      return `${roleRule.compoundDuplicate.join(' + ')} already matches another registration in this organization.`;
+    }
+  }
+  return '';
 }
 
 function normalizePosition(position) {
@@ -436,8 +778,21 @@ async function appendAudit(action, card, actor = 'system') {
   await supabaseRequest('POST', 'audit_log', '', toSupabaseAudit(entry));
 }
 
-function publicCard(card) {
+async function publicCard(card) {
   if (!card) return null;
+  const org = card.organizationId ? (await loadOrganizations()).find((item) => item.id === card.organizationId) : null;
+  if (org && !organizationIsActive(org)) {
+    return {
+      id: card.id,
+      name: 'Subscription Inactive',
+      organization: publicOrganization(org),
+      status: org.subscriptionStatus || 'Inactive',
+      valid: false,
+      validity: 'Not Valid',
+      invalidReason: 'This organization subscription is inactive. Please contact the organization administrator.',
+      verifiedAt: new Date().toISOString()
+    };
+  }
   const valid = (card.status || 'Pending') === 'Approved';
   const status = card.status || 'Pending';
   const invalidReason = valid ? '' : (
@@ -451,6 +806,10 @@ function publicCard(card) {
   return {
     id: card.id,
     name: card.name,
+    organization: org ? publicOrganization(org) : null,
+    cardType: card.cardType || 'user',
+    roleType: card.roleType || '',
+    fields: card.fields || {},
     location: card.location,
     branch: card.branch,
     nationalIdLast4: nationalId ? nationalId.slice(-4) : '',
@@ -518,6 +877,329 @@ async function handleApi(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/templates' && req.method === 'GET') {
+    sendJson(res, 200, { templates: cardTemplates, organizationTypes: organizationTypeRules });
+    return true;
+  }
+
+  if (url.pathname === '/api/organizations/register' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const organizations = await loadOrganizations();
+      const email = String(payload.email || '').trim().toLowerCase();
+      const businessNumber = String(payload.businessNumber || '').trim();
+      const password = String(payload.password || '');
+      const type = organizationTypeRules[payload.type] ? payload.type : 'custom';
+      const templateId = cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : 'sample';
+      if (!String(payload.name || '').trim() || !businessNumber || !email || !String(payload.phone || '').trim() || !password) {
+        sendJson(res, 400, { error: 'Organization name, business number, email, phone, and password are required.' });
+        return true;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        sendJson(res, 400, { error: 'Enter a valid organization email address.' });
+        return true;
+      }
+      if (password.length < 8) {
+        sendJson(res, 400, { error: 'Organization admin password must be at least 8 characters.' });
+        return true;
+      }
+      if (organizations.some((org) => normalizeKey(org.email) === email)) {
+        sendJson(res, 409, { error: 'This organization email is already registered.' });
+        return true;
+      }
+      if (organizations.some((org) => normalizeKey(org.businessNumber) === normalizeKey(businessNumber))) {
+        sendJson(res, 409, { error: 'This business/registration number is already registered.' });
+        return true;
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      const id = createOrganizationId(organizations, payload.name);
+      const org = {
+        id,
+        name: String(payload.name || '').trim(),
+        type,
+        businessNumber,
+        email,
+        phone: String(payload.phone || '').trim(),
+        logo: String(payload.logo || ''),
+        templateId,
+        ownerName: String(payload.ownerName || '').trim(),
+        salt,
+        passwordHash: hashPassword(password, salt),
+        status: 'Pending',
+        subscriptionStatus: 'Pending',
+        backSettings: cleanBackSettings(payload.backSettings || {}, {
+          name: String(payload.name || '').trim(),
+          type,
+          phone: String(payload.phone || '').trim()
+        }),
+        masterCard: {
+          number: `${id}/MASTER`,
+          token: createVerificationToken(),
+          status: 'Active',
+          issuedAt: new Date().toISOString(),
+          replacedAt: ''
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: ''
+      };
+      organizations.push(org);
+      await saveOrganizations(organizations);
+      await appendAudit('organization-registered', { id: org.id }, 'public');
+      sendJson(res, 201, { organization: publicOrganization(org), message: 'Organization registered. Super admin must activate subscription before the admin panel and QR codes work.' });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Invalid organization registration.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/org-login' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const email = String(payload.email || '').trim().toLowerCase();
+      const org = (await loadOrganizations()).find((item) => normalizeKey(item.email) === email);
+      if (!org || hashPassword(payload.password || '', org.salt) !== org.passwordHash) {
+        sendJson(res, 401, { error: 'Invalid organization email or password.' });
+        return true;
+      }
+      const token = crypto.randomBytes(24).toString('hex');
+      const session = {
+        username: org.email,
+        role: 'organization-admin',
+        organizationId: org.id,
+        expiresAt: Date.now() + 8 * 60 * 60 * 1000
+      };
+      sessions.set(token, session);
+      sendJson(res, 200, { token, role: session.role, organization: publicOrganization(org), locked: !organizationIsActive(org), rules: organizationTypeRules[org.type] || organizationTypeRules.custom, templates: cardTemplates, expiresAt: session.expiresAt });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to login organization.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/org/me' && req.method === 'GET') {
+    const org = await currentOrganization(req);
+    if (!org) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    sendJson(res, 200, { organization: publicOrganization(org), locked: !organizationIsActive(org), rules: organizationTypeRules[org.type] || organizationTypeRules.custom, templates: cardTemplates });
+    return true;
+  }
+
+  if (url.pathname === '/api/org/back-settings' && req.method === 'PATCH') {
+    const sessionOrg = await currentOrganization(req);
+    if (!sessionOrg) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    if (!requireActiveOrganization(res, sessionOrg)) return true;
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const organizations = await loadOrganizations();
+      const org = organizations.find((item) => item.id === sessionOrg.id);
+      if (!org) {
+        sendJson(res, 404, { error: 'Organization not found.' });
+        return true;
+      }
+      org.backSettings = cleanBackSettings(payload.backSettings || payload || {}, org);
+      org.updatedAt = new Date().toISOString();
+      await saveOrganizations(organizations);
+      await appendAudit('organization-back-settings-updated', { id: org.id }, org.email);
+      sendJson(res, 200, { organization: publicOrganization(org) });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to update back card settings.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/organizations' && req.method === 'GET') {
+    const admin = currentAdmin(req);
+    if (!admin || admin.role !== 'super-admin') {
+      sendJson(res, 403, { error: 'Super admin required.' });
+      return true;
+    }
+    sendJson(res, 200, { organizations: (await loadOrganizations()).map(publicOrganization) });
+    return true;
+  }
+
+  if (url.pathname.startsWith('/api/organizations/') && url.pathname.endsWith('/subscription') && req.method === 'PATCH') {
+    const admin = currentAdmin(req);
+    if (!admin || admin.role !== 'super-admin') {
+      sendJson(res, 403, { error: 'Super admin required.' });
+      return true;
+    }
+    try {
+      const id = decodeURIComponent(url.pathname.replace('/api/organizations/', '').replace('/subscription', ''));
+      const payload = JSON.parse(await readBody(req));
+      const organizations = await loadOrganizations();
+      const org = organizations.find((item) => item.id === id);
+      if (!org) {
+        sendJson(res, 404, { error: 'Organization not found.' });
+        return true;
+      }
+      const subscriptionStatus = String(payload.subscriptionStatus || org.subscriptionStatus || 'Pending').trim();
+      const status = String(payload.status || org.status || 'Pending').trim();
+      if (!['Active', 'Trial', 'Expired', 'Pending', 'Cancelled', 'Suspended'].includes(subscriptionStatus)) {
+        sendJson(res, 400, { error: 'Invalid subscription status.' });
+        return true;
+      }
+      if (!['Active', 'Pending', 'Suspended'].includes(status)) {
+        sendJson(res, 400, { error: 'Invalid organization status.' });
+        return true;
+      }
+      org.subscriptionStatus = subscriptionStatus;
+      org.status = status;
+      org.updatedAt = new Date().toISOString();
+      await saveOrganizations(organizations);
+      await appendAudit(`organization-subscription:${subscriptionStatus}`, { id: org.id }, admin.username);
+      sendJson(res, 200, { organization: publicOrganization(org) });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to update subscription.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/org/master-card' && req.method === 'GET') {
+    const org = await currentOrganization(req);
+    if (!org) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    if (!requireActiveOrganization(res, org)) return true;
+    const registrationUrl = new URL('/portal.html', appBaseUrl(req));
+    registrationUrl.searchParams.set('master', org.masterCard.token);
+    sendJson(res, 200, {
+      masterCard: {
+        cardType: 'MASTER CARD',
+        organization: publicOrganization(org),
+        number: org.masterCard.number,
+        token: org.masterCard.token,
+        qrUrl: registrationUrl.href
+      }
+    });
+    return true;
+  }
+
+  if (url.pathname === '/api/org/register-info' && req.method === 'GET') {
+    const token = String(url.searchParams.get('token') || '');
+    const org = (await loadOrganizations()).find((item) => item.masterCard?.token === token && item.masterCard?.status === 'Active');
+    if (!org) {
+      sendJson(res, 404, { error: 'Master card not found or inactive.' });
+      return true;
+    }
+    if (!organizationIsActive(org)) {
+      sendJson(res, 402, { error: 'This organization subscription is inactive. Registration is closed.', locked: true, organization: publicOrganization(org) });
+      return true;
+    }
+    sendJson(res, 200, { organization: publicOrganization(org), rules: organizationTypeRules[org.type] || organizationTypeRules.custom, templates: cardTemplates });
+    return true;
+  }
+
+  if (url.pathname === '/api/org/apply' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const organizations = await loadOrganizations();
+      const org = organizations.find((item) => item.masterCard?.token === String(payload.masterToken || '') && item.masterCard?.status === 'Active');
+      if (!org) {
+        sendJson(res, 404, { error: 'Master card not found or inactive.' });
+        return true;
+      }
+      if (!organizationIsActive(org)) {
+        sendJson(res, 402, { error: 'This organization subscription is inactive. Registration is closed.', locked: true });
+        return true;
+      }
+      const roleType = String(payload.roleType || '').trim();
+      const fields = payload.fields && typeof payload.fields === 'object' ? payload.fields : {};
+      const validationError = validateProfileFields(org, roleType, fields);
+      if (validationError) {
+        sendJson(res, 400, { error: validationError });
+        return true;
+      }
+      const cards = await loadCards();
+      const duplicateError = duplicateRegistrationError(cards, org, roleType, fields);
+      if (duplicateError) {
+        sendJson(res, 409, { error: duplicateError });
+        return true;
+      }
+      const card = {
+        id: createScopedCardId(cards, org, roleType, fields),
+        organizationId: org.id,
+        organizationName: org.name,
+        cardType: 'user',
+        roleType,
+        fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, String(value || '').trim()])),
+        name: String(fields.fullName || '').trim(),
+        location: String(fields.location || fields.className || fields.faculty || '').trim(),
+        branch: String(fields.branch || fields.department || fields.subjectOrDepartment || fields.unit || '').trim(),
+        nationalId: String(fields.nationalId || '').trim(),
+        phone: String(fields.phone || fields.guardianPhone || '').trim(),
+        email: String(fields.email || '').trim().toLowerCase(),
+        position: String(fields.position || fields.title || roleType || '').trim(),
+        photo: String(fields.photo || ''),
+        verificationToken: createVerificationToken(),
+        inactiveReason: '',
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      };
+      cards.push(card);
+      await saveCards(cards);
+      await appendAudit('organization-user-applied', card, 'master-qr');
+      sendJson(res, 201, { card, message: 'Registration received. Organization admin must approve before the ID card is valid.' });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Invalid registration.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/org/cards' && req.method === 'GET') {
+    const org = await currentOrganization(req);
+    if (!org) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    if (!requireActiveOrganization(res, org)) return true;
+    const cards = (await loadCards()).filter((card) => card.organizationId === org.id);
+    sendJson(res, 200, { cards });
+    return true;
+  }
+
+  if (url.pathname.startsWith('/api/org/cards/') && url.pathname.endsWith('/status') && req.method === 'PATCH') {
+    const org = await currentOrganization(req);
+    if (!org) {
+      sendJson(res, 401, { error: 'Please log in again as organization admin.' });
+      return true;
+    }
+    if (!requireActiveOrganization(res, org)) return true;
+    try {
+      const id = decodeURIComponent(url.pathname.replace('/api/org/cards/', '').replace('/status', ''));
+      const payload = JSON.parse(await readBody(req));
+      const status = String(payload.status || '').trim();
+      if (!['Pending', 'Approved', 'Rejected', 'Suspended', 'Lost', 'Inactive'].includes(status)) {
+        sendJson(res, 400, { error: 'Invalid status.' });
+        return true;
+      }
+      const cards = await loadCards();
+      const card = cards.find((item) => item.id === id && item.organizationId === org.id);
+      if (!card) {
+        sendJson(res, 404, { error: 'Card not found in this organization.' });
+        return true;
+      }
+      card.status = status;
+      card.inactiveReason = status === 'Inactive' ? String(payload.reason || payload.inactiveReason || 'This card is inactive.').trim() : '';
+      if (status === 'Approved') {
+        card.approvedAt = new Date().toISOString();
+        card.approvedBy = org.email;
+      }
+      card.updatedAt = new Date().toISOString();
+      await saveCards(cards);
+      await appendAudit(`organization-card-status:${status}`, card, org.email);
+      sendJson(res, 200, { card });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to update card status.' });
+    }
+    return true;
+  }
+
   if (url.pathname === '/api/forgot-password' && req.method === 'POST') {
     if (!checkRate(req, 'forgot-password', 5, 15 * 60_000)) {
       sendJson(res, 429, { error: 'Too many reset attempts. Try again later.' });
@@ -536,6 +1218,10 @@ async function handleApi(req, res, url) {
         codeHash: hashPassword(code, config.salt),
         expiresAt: Date.now() + 10 * 60 * 1000
       });
+      if (!resendApiKey && showResetCodeWhenEmailDisabled) {
+        sendJson(res, 200, { ok: true, message: `Email is not configured. Use reset code ${code}. It expires in 10 minutes.` });
+        return true;
+      }
       await sendResetEmail(email, code);
       sendJson(res, 200, { ok: true, message: 'Reset code sent to the registered admin email.' });
     } catch (error) {
@@ -651,6 +1337,27 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/verify' && req.method === 'GET') {
     const token = url.searchParams.get('token');
+    const masterOrg = (await loadOrganizations()).find((item) => item.masterCard?.token === token);
+    if (masterOrg) {
+      const active = organizationIsActive(masterOrg) && masterOrg.masterCard?.status === 'Active';
+      sendJson(res, 200, {
+        card: {
+          id: masterOrg.masterCard.number,
+          name: masterOrg.name,
+          organization: publicOrganization(masterOrg),
+          cardType: 'master',
+          position: 'MASTER CARD',
+          branch: masterOrg.type,
+          status: active ? 'Active' : (masterOrg.subscriptionStatus || 'Inactive'),
+          valid: active,
+          validity: active ? 'Valid Master Card' : 'Not Valid',
+          invalidReason: active ? '' : 'This master card or organization subscription is inactive.',
+          registrationOpen: active,
+          verifiedAt: new Date().toISOString()
+        }
+      });
+      return true;
+    }
     const card = (await loadCards()).find((item) => item.verificationToken === token);
     if (!card) {
       sendJson(res, 200, {
@@ -670,7 +1377,7 @@ async function handleApi(req, res, url) {
       });
       return true;
     }
-    sendJson(res, 200, { card: publicCard(card) });
+    sendJson(res, 200, { card: await publicCard(card) });
     return true;
   }
 
@@ -907,5 +1614,5 @@ const server = process.env.HTTPS_KEY && process.env.HTTPS_CERT
 
 server.listen(port, '0.0.0.0', () => {
   const protocol = process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http';
-  console.log(`Jixels ID app running at ${protocol}://localhost:${port}`);
+  console.log(`MAPPHEX ID app running at ${protocol}://localhost:${port}`);
 });
