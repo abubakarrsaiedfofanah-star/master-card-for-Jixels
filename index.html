@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Jixels Electronic ID Cards</title>
+  <title>MAPPHEX ID Cards Portal</title>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace(`https://master-card-for-jixels.onrender.com/${window.location.search || ''}${window.location.hash || ''}`);
+      window.location.replace(`https://mapphex-id-cards-portal.onrender.com/${window.location.search || ''}${window.location.hash || ''}`);
     }
   </script>
   <style>
@@ -538,7 +538,7 @@
     </section>
 
     <div class="topbar" id="topbar">
-      <h1>Jixels Electronic ID Cards</h1>
+      <h1>MAPPHEX ID Cards Portal</h1>
       <div class="actions">
         <a class="button secondary" href="#apply" id="openFormLink">Open Form</a>
         <button class="secondary" type="button" id="printBtn">Print Current Card</button>
@@ -985,7 +985,7 @@
       const blob = new Blob([csv], { type: 'text/csv' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'jixels-id-cards.csv';
+      link.download = 'mapphex-id-cards.csv';
       link.click();
       URL.revokeObjectURL(link.href);
     }

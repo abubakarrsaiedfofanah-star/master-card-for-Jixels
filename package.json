@@ -1,8 +1,8 @@
 {
-  "name": "jixels-id-cards",
+  "name": "mapphex-id-cards-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Jixels ID card registration and approval app.",
+  "description": "MAPPHEX ID cards portal for organization subscriptions and card management.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -6,7 +6,7 @@
   <title>MAPPHEX Super Admin</title>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('https://master-card-for-jixels.onrender.com/admin');
+      window.location.replace('https://mapphex-id-cards-portal.onrender.com/admin');
     }
   </script>
   <style>
@@ -482,7 +482,7 @@
 
     function friendlyError(error) {
       if (error && /failed to fetch/i.test(error.message || '')) {
-        return 'Could not reach the hosted server. Open https://master-card-for-jixels.onrender.com/admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
+        return 'Could not reach the hosted server. Open https://mapphex-id-cards-portal.onrender.com/admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
       }
       return error.message || 'Something went wrong.';
     }
@@ -829,7 +829,7 @@
       const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      link.download = 'jixels-id-cards.csv';
+      link.download = 'mapphex-id-cards.csv';
       link.click();
       URL.revokeObjectURL(link.href);
     }
