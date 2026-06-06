@@ -353,9 +353,10 @@ function loadMasterConfig() {
 }
 
 function appBaseUrl(req) {
-  if (publicBaseUrl) return publicBaseUrl;
   const protocol = process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http';
-  return `${protocol}://${req.headers.host}`;
+  const requestBaseUrl = `${protocol}://${req.headers.host}`;
+  if (publicBaseUrl && !/mapphex-id-cards-portal/i.test(publicBaseUrl)) return publicBaseUrl;
+  return requestBaseUrl;
 }
 
 function checkRate(req, key, limit, windowMs) {
