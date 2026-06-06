@@ -308,6 +308,7 @@
         <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
+        <button type="button" data-tab="organizations">Organizations</button>
         <button type="button" data-tab="settings">Admin Settings</button>
         <button type="button" data-tab="audit">Audit</button>
       </aside>
@@ -453,6 +454,7 @@
         <div class="controls">
           <a class="button secondary" href="/portal.html" target="_blank" rel="noopener">Open Organization Portal</a>
           <button type="button" id="loadOrganizationsBtn">Refresh Organizations</button>
+          <button type="button" class="secondary" id="deleteOrganizationsBtn">Delete All Organization Accounts</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -555,6 +557,7 @@
       copyWorkerLinkBtn: document.getElementById('copyWorkerLinkBtn')
       ,
       loadOrganizationsBtn: document.getElementById('loadOrganizationsBtn'),
+      deleteOrganizationsBtn: document.getElementById('deleteOrganizationsBtn'),
       organizationsRows: document.getElementById('organizationsRows')
     };
 
@@ -908,6 +911,21 @@
       renderOrganizations();
     }
 
+    async function deleteAllOrganizations() {
+      const confirmation = prompt('Type DELETE ORGANIZATIONS to delete all subscriber organization accounts and their organization cards.');
+      if (confirmation !== 'DELETE ORGANIZATIONS') return;
+      const response = await fetch('/api/organizations', {
+        method: 'DELETE',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: confirmation })
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to delete organization accounts.');
+      state.organizations = [];
+      renderOrganizations();
+      alert(`Deleted ${data.deletedOrganizations || 0} organization account(s) and ${data.deletedOrganizationCards || 0} organization card(s).`);
+    }
+
     async function changePassword() {
       const response = await fetch('/api/change-password', {
         method: 'POST',
@@ -1050,6 +1068,7 @@
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
     els.loadOrganizationsBtn.addEventListener('click', () => loadOrganizations().catch((error) => alert(friendlyError(error))));
+    els.deleteOrganizationsBtn.addEventListener('click', () => deleteAllOrganizations().catch((error) => alert(friendlyError(error))));
     els.organizationsRows.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-org-action]');
       if (!button) return;

@@ -1059,6 +1059,35 @@ async function handleApi(req, res, url) {
     return true;
   }
 
+  if (url.pathname === '/api/organizations' && req.method === 'DELETE') {
+    const admin = currentAdmin(req);
+    if (!admin || admin.role !== 'super-admin') {
+      sendJson(res, 403, { error: 'Super admin required.' });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      if (String(payload.confirm || '') !== 'DELETE ORGANIZATIONS') {
+        sendJson(res, 400, { error: 'Type DELETE ORGANIZATIONS to confirm.' });
+        return true;
+      }
+      const organizations = await loadOrganizations();
+      const cards = await loadCards();
+      const remainingCards = cards.filter((card) => !card.organizationId);
+      await saveOrganizations([]);
+      await saveCards(remainingCards);
+      await appendAudit('deleted-all-organization-accounts', { id: 'organizations' }, admin.username);
+      sendJson(res, 200, {
+        ok: true,
+        deletedOrganizations: organizations.length,
+        deletedOrganizationCards: cards.length - remainingCards.length
+      });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to delete organization accounts.' });
+    }
+    return true;
+  }
+
   if (url.pathname.startsWith('/api/organizations/') && url.pathname.endsWith('/subscription') && req.method === 'PATCH') {
     const admin = currentAdmin(req);
     if (!admin || admin.role !== 'super-admin') {
@@ -1621,7 +1650,9 @@ const app = async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (await handleApi(req, res, url)) return;
 
-  const requested = url.pathname === '/' ? '/index.html' : (url.pathname === '/admin' ? '/admin.html' : url.pathname);
+  const requested = url.pathname === '/' ? '/index.html' :
+    (url.pathname === '/admin' ? '/admin.html' :
+    (url.pathname === '/super-admin' ? '/super-admin.html' : url.pathname));
   const filePath = path.join(root, path.normalize(requested));
 
   if (!filePath.startsWith(root)) {
