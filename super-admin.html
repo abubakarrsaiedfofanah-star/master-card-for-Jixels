@@ -454,6 +454,7 @@
         <div class="controls">
           <a class="button secondary" href="/portal.html" target="_blank" rel="noopener">Open Organization Portal</a>
           <button type="button" id="loadOrganizationsBtn">Refresh Organizations</button>
+          <button type="button" id="createJixelsClientBtn">Create Jixels Client</button>
           <button type="button" class="secondary" id="deleteOrganizationsBtn">Delete All Organization Accounts</button>
         </div>
         <div class="table-wrap">
@@ -557,6 +558,7 @@
       copyWorkerLinkBtn: document.getElementById('copyWorkerLinkBtn')
       ,
       loadOrganizationsBtn: document.getElementById('loadOrganizationsBtn'),
+      createJixelsClientBtn: document.getElementById('createJixelsClientBtn'),
       deleteOrganizationsBtn: document.getElementById('deleteOrganizationsBtn'),
       organizationsRows: document.getElementById('organizationsRows')
     };
@@ -926,6 +928,32 @@
       alert(`Deleted ${data.deletedOrganizations || 0} organization account(s) and ${data.deletedOrganizationCards || 0} organization card(s).`);
     }
 
+    async function createJixelsClient() {
+      const email = prompt('Jixels organization admin email:');
+      if (!email) return;
+      const phone = prompt('Jixels phone number:');
+      if (!phone) return;
+      const password = prompt('Jixels organization admin password, minimum 8 characters:');
+      if (!password) return;
+      const businessNumber = prompt('Jixels business/registration number:', 'JIXELS-FIRST-CLIENT') || 'JIXELS-FIRST-CLIENT';
+      const response = await fetch('/api/organizations/jixels-client', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          phone: phone.trim(),
+          password,
+          businessNumber: businessNumber.trim(),
+          brandColor: '#357fbd',
+          templateId: 'sample'
+        })
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(data.error || 'Unable to create Jixels client.');
+      await loadOrganizations();
+      alert(data.message || 'Jixels client is ready.');
+    }
+
     async function changePassword() {
       const response = await fetch('/api/change-password', {
         method: 'POST',
@@ -1068,6 +1096,7 @@
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
     els.loadOrganizationsBtn.addEventListener('click', () => loadOrganizations().catch((error) => alert(friendlyError(error))));
+    els.createJixelsClientBtn.addEventListener('click', () => createJixelsClient().catch((error) => alert(friendlyError(error))));
     els.deleteOrganizationsBtn.addEventListener('click', () => deleteAllOrganizations().catch((error) => alert(friendlyError(error))));
     els.organizationsRows.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-org-action]');

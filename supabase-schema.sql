@@ -30,6 +30,7 @@ create table if not exists organizations (
   email text not null,
   phone text not null,
   logo text not null default '',
+  brand_color text not null default '#357fbd',
   template_id text not null default 'sample',
   owner_name text not null default '',
   salt text not null,
@@ -63,6 +64,7 @@ alter table cards add column if not exists organization_name text;
 alter table cards add column if not exists card_type text not null default 'user';
 alter table cards add column if not exists role_type text;
 alter table cards add column if not exists fields jsonb not null default '{}'::jsonb;
+alter table organizations add column if not exists brand_color text not null default '#357fbd';
 
 alter table cards drop constraint if exists cards_national_id_key;
 alter table cards drop constraint if exists cards_phone_key;

@@ -219,6 +219,7 @@ function fromSupabaseOrganization(row) {
     email: row.email,
     phone: row.phone,
     logo: row.logo || '',
+    brandColor: row.brand_color || '#357fbd',
     templateId: row.template_id || 'sample',
     ownerName: row.owner_name || '',
     salt: row.salt,
@@ -241,6 +242,7 @@ function toSupabaseOrganization(org) {
     email: org.email,
     phone: org.phone,
     logo: org.logo || '',
+    brand_color: normalizeBrandColor(org.brandColor || '#357fbd'),
     template_id: org.templateId || 'sample',
     owner_name: org.ownerName || '',
     salt: org.salt,
@@ -573,6 +575,15 @@ function normalizeKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeBrandColor(value) {
+  const color = String(value || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(color)) {
+    return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`.toLowerCase();
+  }
+  return '#357fbd';
+}
+
 function defaultBackSettings(org) {
   const name = String(org?.name || 'Organization').trim() || 'Organization';
   const phone = String(org?.phone || '').trim();
@@ -618,6 +629,7 @@ function publicOrganization(org) {
     email: org.email,
     phone: org.phone,
     logo: org.logo || '',
+    brandColor: normalizeBrandColor(org.brandColor || '#357fbd'),
     templateId: org.templateId || 'sample',
     backSettings: cleanBackSettings(org.backSettings || {}, org),
     subscriptionStatus: org.subscriptionStatus || 'Pending',
@@ -922,6 +934,7 @@ async function handleApi(req, res, url) {
         email,
         phone: String(payload.phone || '').trim(),
         logo: String(payload.logo || ''),
+        brandColor: normalizeBrandColor(payload.brandColor),
         templateId,
         ownerName: String(payload.ownerName || '').trim(),
         salt,
@@ -1022,6 +1035,7 @@ async function handleApi(req, res, url) {
     try {
       const payload = JSON.parse(await readBody(req));
       const logo = String(payload.logo || '').trim();
+      const brandColor = normalizeBrandColor(payload.brandColor || sessionOrg.brandColor);
       const templateId = cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : (sessionOrg.templateId || 'sample');
       if (logo && !/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(logo) && !/^https?:\/\//i.test(logo)) {
         sendJson(res, 400, { error: 'Logo must be an uploaded image data URL or a valid image URL.' });
@@ -1038,6 +1052,7 @@ async function handleApi(req, res, url) {
         return true;
       }
       org.logo = logo;
+      org.brandColor = brandColor;
       org.templateId = templateId;
       org.updatedAt = new Date().toISOString();
       await saveOrganizations(organizations);
@@ -1045,6 +1060,111 @@ async function handleApi(req, res, url) {
       sendJson(res, 200, { organization: publicOrganization(org), templates: cardTemplates });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to update branding.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/organizations/jixels-client' && req.method === 'POST') {
+    const admin = currentAdmin(req);
+    if (!admin || admin.role !== 'super-admin') {
+      sendJson(res, 403, { error: 'Super admin required.' });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const email = String(payload.email || '').trim().toLowerCase();
+      const phone = String(payload.phone || '').trim();
+      const password = String(payload.password || '');
+      const businessNumber = String(payload.businessNumber || 'JIXELS-FIRST-CLIENT').trim();
+      if (!email || !phone || !password) {
+        sendJson(res, 400, { error: 'Jixels email, phone, and password are required.' });
+        return true;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        sendJson(res, 400, { error: 'Enter a valid Jixels email address.' });
+        return true;
+      }
+      if (password.length < 8) {
+        sendJson(res, 400, { error: 'Jixels password must be at least 8 characters.' });
+        return true;
+      }
+      const organizations = await loadOrganizations();
+      let org = organizations.find((item) =>
+        normalizeKey(item.email) === email ||
+        normalizeKey(item.businessNumber) === normalizeKey(businessNumber) ||
+        normalizeKey(item.name) === 'jixels technologies ltd'
+      );
+      const now = new Date().toISOString();
+      if (org) {
+        org.name = 'Jixels Technologies Ltd';
+        org.type = 'company';
+        org.email = email;
+        org.phone = phone;
+        org.businessNumber = businessNumber;
+        org.logo = String(payload.logo || org.logo || '');
+        org.brandColor = normalizeBrandColor(payload.brandColor || org.brandColor || '#357fbd');
+        org.templateId = cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : (org.templateId || 'sample');
+        org.status = 'Active';
+        org.subscriptionStatus = 'Active';
+        org.ownerName = String(payload.ownerName || org.ownerName || 'Jixels Admin').trim();
+        org.backSettings = cleanBackSettings(org.backSettings || {}, org);
+        if (!org.masterCard?.token) {
+          org.masterCard = {
+            number: `${org.id}/MASTER`,
+            token: createVerificationToken(),
+            status: 'Active',
+            issuedAt: now,
+            replacedAt: ''
+          };
+        }
+        if (payload.password) {
+          org.salt = crypto.randomBytes(16).toString('hex');
+          org.passwordHash = hashPassword(password, org.salt);
+        }
+        org.updatedAt = now;
+        await saveOrganizations(organizations);
+        await appendAudit('jixels-client-updated', { id: org.id }, admin.username);
+        sendJson(res, 200, { organization: publicOrganization(org), message: 'Jixels is active as the first client.' });
+        return true;
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      const id = createOrganizationId(organizations, 'Jixels');
+      org = {
+        id,
+        name: 'Jixels Technologies Ltd',
+        type: 'company',
+        businessNumber,
+        email,
+        phone,
+        logo: String(payload.logo || ''),
+        brandColor: normalizeBrandColor(payload.brandColor || '#357fbd'),
+        templateId: cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : 'sample',
+        ownerName: String(payload.ownerName || 'Jixels Admin').trim(),
+        salt,
+        passwordHash: hashPassword(password, salt),
+        status: 'Active',
+        subscriptionStatus: 'Active',
+        backSettings: cleanBackSettings(payload.backSettings || {}, {
+          name: 'Jixels Technologies Ltd',
+          type: 'company',
+          phone
+        }),
+        masterCard: {
+          number: `${id}/MASTER`,
+          token: createVerificationToken(),
+          status: 'Active',
+          issuedAt: now,
+          replacedAt: ''
+        },
+        createdAt: now,
+        updatedAt: ''
+      };
+      organizations.push(org);
+      await saveOrganizations(organizations);
+      await appendAudit('jixels-client-created', { id: org.id }, admin.username);
+      sendJson(res, 201, { organization: publicOrganization(org), message: 'Jixels is active as the first client.' });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to create Jixels client.' });
     }
     return true;
   }

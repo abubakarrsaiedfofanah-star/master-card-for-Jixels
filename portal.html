@@ -141,6 +141,7 @@
         <label>Owner/admin name<input name="ownerName"></label>
         <label>Password<input name="password" type="password" minlength="8" required></label>
         <input name="logo" id="registerLogoValue" type="hidden">
+        <label>Brand color<input name="brandColor" id="registerBrandColor" type="color" value="#357fbd"></label>
         <div class="upload-box" data-logo-drop="register" tabindex="0">
           <div class="upload-row">
             <img class="logo-preview hidden" id="registerLogoPreview" alt="">
@@ -173,6 +174,7 @@
         <div id="subscriptionNotice" class="notice hidden"></div>
         <form id="brandingForm">
           <input name="logo" id="dashboardLogoValue" type="hidden">
+          <label>Brand color<input name="brandColor" id="dashboardBrandColor" type="color" value="#357fbd"></label>
           <label>Selected template<select name="templateId" id="templateSelect"></select></label>
           <div class="upload-box" data-logo-drop="dashboard" tabindex="0">
             <div class="upload-row">
@@ -296,8 +298,8 @@
       alreadyRegisteredBtn: document.getElementById('alreadyRegisteredBtn'), loginPanel: document.getElementById('loginPanel'), publicTemplatePreview: document.getElementById('publicTemplatePreview'),
       orgType: document.getElementById('orgType'), templateGallery: document.getElementById('templateGallery'),
       orgRegisterForm: document.getElementById('orgRegisterForm'), loginForm: document.getElementById('loginForm'), loginNotice: document.getElementById('loginNotice'),
-      registerLogoValue: document.getElementById('registerLogoValue'), registerLogoPreview: document.getElementById('registerLogoPreview'), registerLogoFile: document.getElementById('registerLogoFile'),
-      brandingForm: document.getElementById('brandingForm'), dashboardLogoValue: document.getElementById('dashboardLogoValue'), dashboardLogoPreview: document.getElementById('dashboardLogoPreview'),
+      registerLogoValue: document.getElementById('registerLogoValue'), registerBrandColor: document.getElementById('registerBrandColor'), registerLogoPreview: document.getElementById('registerLogoPreview'), registerLogoFile: document.getElementById('registerLogoFile'),
+      brandingForm: document.getElementById('brandingForm'), dashboardLogoValue: document.getElementById('dashboardLogoValue'), dashboardBrandColor: document.getElementById('dashboardBrandColor'), dashboardLogoPreview: document.getElementById('dashboardLogoPreview'),
       dashboardLogoFile: document.getElementById('dashboardLogoFile'), templateSelect: document.getElementById('templateSelect'),
       dashboard: document.getElementById('dashboard'), subscriptionNotice: document.getElementById('subscriptionNotice'), masterCard: document.getElementById('masterCard'),
       masterLogo: document.getElementById('masterLogo'), masterOrgName: document.getElementById('masterOrgName'), masterOrgType: document.getElementById('masterOrgType'),
@@ -319,9 +321,73 @@
     function verificationUrl(token) { return `${window.location.origin}/?token=${encodeURIComponent(token)}`; }
     function hasRegisteredOrganization() { return localStorage.getItem('mapphexOrganizationRegistered') === 'true'; }
     function rememberRegisteredOrganization() { localStorage.setItem('mapphexOrganizationRegistered', 'true'); }
+    function normalizeHexColor(color) {
+      const value = String(color || '').trim();
+      if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+      if (/^#[0-9a-f]{3}$/i.test(value)) return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`.toLowerCase();
+      return '#357fbd';
+    }
+    function setBrandColor(color) {
+      document.documentElement.style.setProperty('--blue', normalizeHexColor(color));
+    }
+    function rgbToHex(r, g, b) {
+      return `#${[r, g, b].map((value) => Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0')).join('')}`;
+    }
+    function extractDominantColor(src) {
+      return new Promise((resolve) => {
+        if (!src) {
+          resolve('#357fbd');
+          return;
+        }
+        const image = new Image();
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const size = 80;
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            context.clearRect(0, 0, size, size);
+            context.drawImage(image, 0, 0, size, size);
+            const pixels = context.getImageData(0, 0, size, size).data;
+            const buckets = new Map();
+            for (let index = 0; index < pixels.length; index += 16) {
+              const r = pixels[index];
+              const g = pixels[index + 1];
+              const b = pixels[index + 2];
+              const a = pixels[index + 3];
+              if (a < 120) continue;
+              const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+              const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+              if (lightness > 232 || lightness < 28 || saturation < 24) continue;
+              const key = `${Math.round(r / 24) * 24},${Math.round(g / 24) * 24},${Math.round(b / 24) * 24}`;
+              buckets.set(key, (buckets.get(key) || 0) + 1 + saturation / 255);
+            }
+            let bestKey = '';
+            let bestScore = 0;
+            buckets.forEach((score, key) => {
+              if (score > bestScore) {
+                bestScore = score;
+                bestKey = key;
+              }
+            });
+            if (!bestKey) {
+              resolve('#357fbd');
+              return;
+            }
+            resolve(rgbToHex(...bestKey.split(',').map(Number)));
+          } catch {
+            resolve('#357fbd');
+          }
+        };
+        image.onerror = () => resolve('#357fbd');
+        image.src = src;
+      });
+    }
     function showIntro() {
       document.title = 'MAPPHEX ID CARDS PORTAL';
       els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
+      setBrandColor('#357fbd');
       els.portalIntro.classList.remove('hidden');
       els.entryArea.classList.add('hidden');
       els.orgRegisterForm.classList.add('hidden');
@@ -330,6 +396,7 @@
     function showRegistration() {
       document.title = 'MAPPHEX ID CARDS PORTAL';
       els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
+      setBrandColor('#357fbd');
       els.portalIntro.classList.add('hidden');
       els.entryArea.classList.remove('hidden');
       els.orgRegisterForm.classList.remove('hidden');
@@ -338,6 +405,7 @@
     function showLogin() {
       document.title = 'MAPPHEX ID CARDS PORTAL';
       els.portalTitle.textContent = 'MAPPHEX ID CARDS PORTAL';
+      setBrandColor('#357fbd');
       els.portalIntro.classList.add('hidden');
       els.entryArea.classList.remove('hidden');
       els.orgRegisterForm.classList.add('hidden');
@@ -416,6 +484,13 @@
       if (removeButton) removeButton.classList.toggle('hidden', !value);
     }
 
+    function setBrandColorValue(scope, value) {
+      const color = normalizeHexColor(value);
+      const input = scope === 'register' ? els.registerBrandColor : els.dashboardBrandColor;
+      if (input) input.value = color;
+      if (scope === 'dashboard') setBrandColor(color);
+    }
+
     function readLogoFile(file) {
       return new Promise((resolve, reject) => {
         if (!file) {
@@ -439,7 +514,10 @@
     }
 
     async function handleLogoFile(scope, file) {
-      setLogoValue(scope, await readLogoFile(file));
+      const logo = await readLogoFile(file);
+      const color = await extractDominantColor(logo);
+      setLogoValue(scope, logo);
+      setBrandColorValue(scope, color);
     }
 
     function setupLogoUploader(scope) {
@@ -451,6 +529,7 @@
       removeButton.addEventListener('click', () => {
         fileInput.value = '';
         setLogoValue(scope, '');
+        setBrandColorValue(scope, '#357fbd');
       });
       fileInput.addEventListener('change', () => handleLogoFile(scope, fileInput.files[0]).catch((error) => alert(friendlyError(error))));
       box.addEventListener('dragover', (event) => {
@@ -479,6 +558,7 @@
         state.rules = data.rules;
         document.title = `${data.organization.name} Registration`;
         els.portalTitle.textContent = `${data.organization.name} Registration`;
+        setBrandColor(data.organization.brandColor || '#357fbd');
         els.scanNotice.textContent = `${data.organization.name} is active. Choose the correct registration type and submit for admin approval.`;
         els.applyForm.classList.remove('hidden');
         els.roleType.innerHTML = Object.entries(data.rules.roles).map(([key, role]) => `<option value="${key}">${role.label}</option>`).join('');
@@ -571,6 +651,7 @@
       fillBackSettingsForm();
       if (data.templates) renderTemplateGallery(data.templates, data.organization.templateId || 'sample');
       setLogoValue('dashboard', data.organization.logo || '');
+      setBrandColorValue('dashboard', data.organization.brandColor || '#357fbd');
       applySubscriptionLock(data.locked);
       if (data.locked) {
         return;
@@ -624,10 +705,11 @@
       const data = await api('/api/org/branding', {
         method: 'PATCH',
         headers: headers(),
-        body: JSON.stringify({ logo: els.dashboardLogoValue.value, templateId: els.templateSelect.value })
+        body: JSON.stringify({ logo: els.dashboardLogoValue.value, brandColor: els.dashboardBrandColor.value, templateId: els.templateSelect.value })
       });
       state.org = data.organization;
       setLogoValue('dashboard', state.org.logo || '');
+      setBrandColorValue('dashboard', state.org.brandColor || '#357fbd');
       renderTemplateGallery(data.templates, state.org.templateId || 'sample');
       alert('Branding saved.');
     }
@@ -675,6 +757,8 @@
     });
 
     els.roleType.addEventListener('change', renderDynamicFields);
+    els.registerBrandColor.addEventListener('input', () => setBrandColorValue('register', els.registerBrandColor.value));
+    els.dashboardBrandColor.addEventListener('input', () => setBrandColorValue('dashboard', els.dashboardBrandColor.value));
     els.startRegisterBtn.addEventListener('click', showRegistration);
     els.alreadyRegisteredBtn.addEventListener('click', () => {
       rememberRegisteredOrganization();
