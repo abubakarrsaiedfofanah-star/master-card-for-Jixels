@@ -1064,7 +1064,7 @@ async function handleApi(req, res, url) {
     return true;
   }
 
-  if (url.pathname === '/api/organizations/jixels-client' && req.method === 'POST') {
+  if (url.pathname === '/api/organizations/sample-client' && req.method === 'POST') {
     const admin = currentAdmin(req);
     if (!admin || admin.role !== 'super-admin') {
       sendJson(res, 403, { error: 'Super admin required.' });
@@ -1072,31 +1072,31 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
+      const name = String(payload.name || 'Sample Client Organization').trim();
       const email = String(payload.email || '').trim().toLowerCase();
       const phone = String(payload.phone || '').trim();
       const password = String(payload.password || '');
-      const businessNumber = String(payload.businessNumber || 'JIXELS-FIRST-CLIENT').trim();
-      if (!email || !phone || !password) {
-        sendJson(res, 400, { error: 'Jixels email, phone, and password are required.' });
+      const businessNumber = String(payload.businessNumber || 'SAMPLE-CLIENT').trim();
+      if (!name || !email || !phone || !password) {
+        sendJson(res, 400, { error: 'Sample client name, email, phone, and password are required.' });
         return true;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        sendJson(res, 400, { error: 'Enter a valid Jixels email address.' });
+        sendJson(res, 400, { error: 'Enter a valid sample client email address.' });
         return true;
       }
       if (password.length < 8) {
-        sendJson(res, 400, { error: 'Jixels password must be at least 8 characters.' });
+        sendJson(res, 400, { error: 'Sample client password must be at least 8 characters.' });
         return true;
       }
       const organizations = await loadOrganizations();
       let org = organizations.find((item) =>
         normalizeKey(item.email) === email ||
-        normalizeKey(item.businessNumber) === normalizeKey(businessNumber) ||
-        normalizeKey(item.name) === 'jixels technologies ltd'
+        normalizeKey(item.businessNumber) === normalizeKey(businessNumber)
       );
       const now = new Date().toISOString();
       if (org) {
-        org.name = 'Jixels Technologies Ltd';
+        org.name = name;
         org.type = 'company';
         org.email = email;
         org.phone = phone;
@@ -1106,7 +1106,7 @@ async function handleApi(req, res, url) {
         org.templateId = cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : (org.templateId || 'sample');
         org.status = 'Active';
         org.subscriptionStatus = 'Active';
-        org.ownerName = String(payload.ownerName || org.ownerName || 'Jixels Admin').trim();
+        org.ownerName = String(payload.ownerName || org.ownerName || 'Sample Admin').trim();
         org.backSettings = cleanBackSettings(org.backSettings || {}, org);
         if (!org.masterCard?.token) {
           org.masterCard = {
@@ -1123,15 +1123,15 @@ async function handleApi(req, res, url) {
         }
         org.updatedAt = now;
         await saveOrganizations(organizations);
-        await appendAudit('jixels-client-updated', { id: org.id }, admin.username);
-        sendJson(res, 200, { organization: publicOrganization(org), message: 'Jixels is active as the first client.' });
+        await appendAudit('sample-client-updated', { id: org.id }, admin.username);
+        sendJson(res, 200, { organization: publicOrganization(org), message: 'Sample client is active.' });
         return true;
       }
       const salt = crypto.randomBytes(16).toString('hex');
-      const id = createOrganizationId(organizations, 'Jixels');
+      const id = createOrganizationId(organizations, name);
       org = {
         id,
-        name: 'Jixels Technologies Ltd',
+        name,
         type: 'company',
         businessNumber,
         email,
@@ -1139,13 +1139,13 @@ async function handleApi(req, res, url) {
         logo: String(payload.logo || ''),
         brandColor: normalizeBrandColor(payload.brandColor || '#357fbd'),
         templateId: cardTemplates.some((template) => template.id === payload.templateId) ? payload.templateId : 'sample',
-        ownerName: String(payload.ownerName || 'Jixels Admin').trim(),
+        ownerName: String(payload.ownerName || 'Sample Admin').trim(),
         salt,
         passwordHash: hashPassword(password, salt),
         status: 'Active',
         subscriptionStatus: 'Active',
         backSettings: cleanBackSettings(payload.backSettings || {}, {
-          name: 'Jixels Technologies Ltd',
+          name,
           type: 'company',
           phone
         }),
@@ -1161,10 +1161,10 @@ async function handleApi(req, res, url) {
       };
       organizations.push(org);
       await saveOrganizations(organizations);
-      await appendAudit('jixels-client-created', { id: org.id }, admin.username);
-      sendJson(res, 201, { organization: publicOrganization(org), message: 'Jixels is active as the first client.' });
+      await appendAudit('sample-client-created', { id: org.id }, admin.username);
+      sendJson(res, 201, { organization: publicOrganization(org), message: 'Sample client is active.' });
     } catch (error) {
-      sendJson(res, 400, { error: error.message || 'Unable to create Jixels client.' });
+      sendJson(res, 400, { error: error.message || 'Unable to create sample client.' });
     }
     return true;
   }
