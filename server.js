@@ -1770,8 +1770,8 @@ const app = async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (await handleApi(req, res, url)) return;
 
-  const requested = url.pathname === '/' ? '/index.html' :
-    (url.pathname === '/admin' ? '/admin.html' :
+  const requested = (url.pathname === '/' || url.pathname === '/jixels') ? '/index.html' :
+    ((url.pathname === '/admin' || url.pathname === '/jixels-admin') ? '/admin.html' :
     (url.pathname === '/super-admin' ? '/super-admin.html' : url.pathname));
   const filePath = path.join(root, path.normalize(requested));
 

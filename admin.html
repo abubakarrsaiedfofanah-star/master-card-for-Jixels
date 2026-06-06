@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MAPPHEX Super Admin</title>
+  <title>Jixels Admin Panel</title>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('https://mapphex-id-cards-portal.onrender.com/admin');
+      window.location.replace('https://mapphex-id-cards-portal.onrender.com/jixels-admin');
     }
   </script>
   <style>
@@ -266,8 +266,8 @@
   <header class="admin-header">
     <div class="admin-header-inner">
       <div class="admin-brand">
-        <strong>MAPPHEX Super Admin</strong>
-        <span>ID registration, approval, and verification control</span>
+        <strong>Jixels Admin Panel</strong>
+        <span>Jixels ID registration, approval, and verification control</span>
       </div>
       <div class="header-actions">
         <div class="admin-status">Secure admin access</div>
@@ -277,7 +277,7 @@
   </header>
   <main>
     <div class="topbar">
-      <h1>MAPPHEX Super Admin</h1>
+      <h1>Jixels Admin Panel</h1>
       <div class="login-form">
         <input id="user" placeholder="Username" value="admin">
         <div class="password-wrap">
@@ -410,7 +410,7 @@
         <p id="cardEmpty">Approve a worker or click View Card on an approved record to show the ID card here.</p>
         <div class="card-stage hidden" id="cardStage">
           <article class="id-card">
-            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
+            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
             <div class="front-shape"></div>
             <div class="photo-ring"><span id="cardPhotoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
             <div class="front-info">
@@ -424,18 +424,18 @@
             <div class="qr-box"><img id="cardQr" crossorigin="anonymous" alt="Worker verification QR"></div>
             <div class="back-text">
               <div>If found please return to:</div>
-              <div class="indent">MAPPHEX</div>
+              <div class="indent">Jixels Technologies Ltd</div>
               <div class="indent">P.O BOX 480-50101 Butere.</div>
               <div class="indent">Phone:+254 713 111 666</div>
               <div class="responsibility-title">Cardholder Responsibilities:</div>
               <ol class="rules">
-                <li>This ID card is the property of MAPPHEX.</li>
+                <li>This ID card is the property of Jixels Technologies Ltd.</li>
                 <li>Use of this card is strictly for the person to whom it is issued.</li>
                 <li>Must be displayed at all times while on company premises.</li>
                 <li>Report lost/stolen cards immediately to HR.</li>
               </ol>
             </div>
-            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
+            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="Jixels logo">
           </article>
         </div>
       </div>
@@ -448,21 +448,6 @@
         <pre class="audit" id="auditBox"></pre>
       </div>
 
-      <div class="panel tab-panel hidden" data-panel="organizations">
-        <h2>Organizations</h2>
-        <div class="controls">
-          <a class="button secondary" href="/portal.html" target="_blank" rel="noopener">Open Organization Portal</a>
-          <button type="button" id="loadOrganizationsBtn">Refresh Organizations</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Name</th><th>Type</th><th>Business No.</th><th>Email</th><th>Phone</th><th>Account</th><th>Subscription</th><th>Master Card</th><th>Action</th></tr>
-            </thead>
-            <tbody id="organizationsRows"><tr><td colspan="9">Refresh organizations after login.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
       </div>
     </section>
   </main>
@@ -475,13 +460,12 @@
       records: [],
       editingId: '',
       currentCard: null,
-      organizations: [],
       refreshTimer: null
     };
 
     function friendlyError(error) {
       if (error && /failed to fetch/i.test(error.message || '')) {
-        return 'Could not reach the hosted server. Open https://mapphex-id-cards-portal.onrender.com/admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
+        return 'Could not reach the hosted server. Open https://mapphex-id-cards-portal.onrender.com/jixels-admin and try again. If the free server was sleeping, wait 30-60 seconds and retry.';
       }
       return error.message || 'Something went wrong.';
     }
@@ -553,9 +537,6 @@
       workerClaimLink: document.getElementById('workerClaimLink'),
       whatsappNotifyLink: document.getElementById('whatsappNotifyLink'),
       copyWorkerLinkBtn: document.getElementById('copyWorkerLinkBtn')
-      ,
-      loadOrganizationsBtn: document.getElementById('loadOrganizationsBtn'),
-      organizationsRows: document.getElementById('organizationsRows')
     };
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
@@ -712,7 +693,7 @@
       }
       els.cardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
       const link = claimUrl(card.verificationToken || '');
-      const message = `Hello ${card.name || 'there'}, your MAPPHEX ID card has been approved. Open this link to view/download your ID card: ${link}`;
+      const message = `Hello ${card.name || 'there'}, your Jixels ID card has been approved. Open this link to view/download your ID card: ${link}`;
       els.notifyText.textContent = `Notify ${card.name || 'worker'} that the ID card is ready.`;
       els.workerClaimLink.href = link;
       els.workerClaimLink.textContent = link;
@@ -828,7 +809,7 @@
       const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      link.download = 'mapphex-id-cards.csv';
+      link.download = 'jixels-id-cards.csv';
       link.click();
       URL.revokeObjectURL(link.href);
     }
@@ -861,51 +842,6 @@
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || 'Unable to load audit.');
       els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
-    }
-
-    function renderOrganizations() {
-      if (!state.organizations.length) {
-        els.organizationsRows.innerHTML = '<tr><td colspan="9">No organizations registered yet.</td></tr>';
-        return;
-      }
-      els.organizationsRows.innerHTML = state.organizations.map((org) => `
-        <tr>
-          <td>${org.name}</td>
-          <td>${org.typeLabel || org.type}</td>
-          <td>${org.businessNumber}</td>
-          <td>${org.email}</td>
-          <td>${org.phone}</td>
-          <td>${org.status}</td>
-          <td>${org.subscriptionStatus}</td>
-          <td>${org.masterCard ? `${org.masterCard.number}<br>${org.masterCard.status}` : ''}</td>
-          <td>
-            <button data-org-action="activate" data-id="${org.id}">Activate</button>
-            <button data-org-action="trial" data-id="${org.id}">Trial</button>
-            <button data-org-action="expire" data-id="${org.id}">Expire</button>
-            <button data-org-action="suspend" data-id="${org.id}">Suspend</button>
-          </td>
-        </tr>`).join('');
-    }
-
-    async function loadOrganizations() {
-      const response = await fetch('/api/organizations', { headers: headers() });
-      const data = await readJson(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to load organizations.');
-      state.organizations = data.organizations || [];
-      renderOrganizations();
-    }
-
-    async function setOrganizationSubscription(id, status, subscriptionStatus) {
-      const response = await fetch(`/api/organizations/${encodeURIComponent(id)}/subscription`, {
-        method: 'PATCH',
-        headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, subscriptionStatus })
-      });
-      const data = await readJson(response);
-      if (!response.ok) throw new Error(data.error || 'Unable to update organization.');
-      const index = state.organizations.findIndex((org) => org.id === id);
-      if (index !== -1) state.organizations[index] = data.organization;
-      renderOrganizations();
     }
 
     async function changePassword() {
@@ -1049,20 +985,6 @@
       }
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
-    els.loadOrganizationsBtn.addEventListener('click', () => loadOrganizations().catch((error) => alert(friendlyError(error))));
-    els.organizationsRows.addEventListener('click', async (event) => {
-      const button = event.target.closest('button[data-org-action]');
-      if (!button) return;
-      try {
-        const action = button.dataset.orgAction;
-        if (action === 'activate') await setOrganizationSubscription(button.dataset.id, 'Active', 'Active');
-        if (action === 'trial') await setOrganizationSubscription(button.dataset.id, 'Active', 'Trial');
-        if (action === 'expire') await setOrganizationSubscription(button.dataset.id, 'Active', 'Expired');
-        if (action === 'suspend') await setOrganizationSubscription(button.dataset.id, 'Suspended', 'Suspended');
-      } catch (error) {
-        alert(friendlyError(error));
-      }
-    });
     els.printCardBtn.addEventListener('click', () => {
       if (!state.currentCard) {
         alert('Select an approved worker card first.');
@@ -1099,7 +1021,7 @@
     }
   </script>
   <footer class="admin-footer">
-    <div class="admin-footer-inner">MAPPHEX super admin system</div>
+    <div class="admin-footer-inner">Jixels admin system</div>
   </footer>
 </body>
 </html>

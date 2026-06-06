@@ -177,6 +177,7 @@
       box-shadow: 0 10px 22px rgba(31, 47, 68, .13);
     }
     .logo-front { position: absolute; top: 20px; left: 40px; width: 250px; height: 124px; object-fit: contain; }
+    .text-logo { display: grid; place-items: center; color: var(--blue-deep); font-weight: 900; font-size: 28px; letter-spacing: 0; border: 2px solid rgba(75, 155, 218, .22); border-radius: 8px; background: #f8fbff; }
     .front-shape {
       position: absolute;
       left: 24px;
@@ -227,6 +228,7 @@
     .rules { display: grid; gap: 7px; margin: 0; padding-left: 31px; font-size: 12.5px; font-weight: 400; line-height: 1.12; }
     .rules li { padding-left: 10px; }
     .logo-back { position: absolute; left: 115px; bottom: 46px; width: 100px; height: 52px; object-fit: contain; }
+    .logo-back.text-logo { font-size: 15px; }
     .hidden { display: none !important; }
     @media (max-width: 860px) {
       main { padding: 14px; }
@@ -411,7 +413,7 @@
         <p id="cardEmpty">Approve a worker or click View Card on an approved record to show the ID card here.</p>
         <div class="card-stage hidden" id="cardStage">
           <article class="id-card">
-            <img class="logo-front" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
+            <div class="logo-front text-logo">MAPPHEX</div>
             <div class="front-shape"></div>
             <div class="photo-ring"><span id="cardPhotoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
             <div class="front-info">
@@ -436,7 +438,7 @@
                 <li>Report lost/stolen cards immediately to HR.</li>
               </ol>
             </div>
-            <img class="logo-back" src="jixels-logo-form-ni-tenje-cropped.jpeg" alt="MAPPHEX logo">
+            <div class="logo-back text-logo">MAPPHEX</div>
           </article>
         </div>
       </div>
@@ -472,9 +474,9 @@
 
   <script>
     const state = {
-      user: sessionStorage.getItem('jixelsAdminUser') || 'admin',
-      pin: sessionStorage.getItem('jixelsAdminPin') || '',
-      token: sessionStorage.getItem('jixelsAdminToken') || '',
+      user: sessionStorage.getItem('mapphexAdminUser') || 'admin',
+      pin: sessionStorage.getItem('mapphexAdminPin') || '',
+      token: sessionStorage.getItem('mapphexAdminToken') || '',
       records: [],
       editingId: '',
       currentCard: null,
@@ -603,7 +605,7 @@
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || 'Unable to login.');
       state.token = data.token;
-      sessionStorage.setItem('jixelsAdminToken', state.token);
+      sessionStorage.setItem('mapphexAdminToken', state.token);
       return data;
     }
 
@@ -671,8 +673,8 @@
       state.currentCard = null;
       if (state.refreshTimer) clearInterval(state.refreshTimer);
       state.refreshTimer = null;
-      sessionStorage.removeItem('jixelsAdminToken');
-      sessionStorage.removeItem('jixelsAdminPin');
+      sessionStorage.removeItem('mapphexAdminToken');
+      sessionStorage.removeItem('mapphexAdminPin');
       els.pin.value = '';
       els.adminArea.classList.add('hidden');
       els.loginPanel.classList.remove('hidden');
@@ -741,7 +743,7 @@
       const canvas = await html2canvas(els.cardStage, { backgroundColor: '#eef2f6', scale: 2, useCORS: true });
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
-      link.download = `${state.currentCard.id || 'jixels-id-card'}.png`;
+      link.download = `${state.currentCard.id || 'mapphex-id-card'}.png`;
       link.click();
     }
 
@@ -844,7 +846,7 @@
       if (!response.ok) throw new Error(data.error || 'Unable to create backup.');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-      link.download = `jixels-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `mapphex-backup-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(link.href);
     }
@@ -998,8 +1000,8 @@
     els.loginBtn.addEventListener('click', async () => {
       state.user = els.user.value.trim() || 'admin';
       state.pin = els.pin.value.trim();
-      sessionStorage.setItem('jixelsAdminUser', state.user);
-      sessionStorage.setItem('jixelsAdminPin', state.pin);
+      sessionStorage.setItem('mapphexAdminUser', state.user);
+      sessionStorage.setItem('mapphexAdminPin', state.pin);
       try {
         await login();
         await loadCards();
