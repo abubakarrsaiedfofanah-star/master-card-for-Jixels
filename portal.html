@@ -22,10 +22,12 @@
     .intro-title { font-size: clamp(34px, 5vw, 60px); line-height: 1; font-weight: 900; letter-spacing: 0; }
     .intro-text { color: var(--muted); font-size: 17px; font-weight: 700; line-height: 1.45; max-width: 650px; }
     .intro-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .intro-preview { display: grid; justify-items: center; gap: 10px; }
-    .sample-card { transform: rotate(-2deg); }
-    .sample-card .logo-front { display: grid; place-items: center; color: var(--blue); font-size: 24px; font-weight: 900; border: 2px solid var(--blue); border-radius: 8px; background: #fff; }
-    .sample-card .photo-ring span { font-size: 22px; }
+    .intro-preview { display: grid; gap: 12px; }
+    .public-templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .public-template { min-height: 122px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px; display: grid; align-content: space-between; box-shadow: 0 10px 22px rgba(31,47,68,.08); }
+    .public-template strong { color: var(--blue); font-size: 15px; }
+    .public-template span { color: var(--muted); font-size: 12px; font-weight: 700; line-height: 1.35; }
+    .public-template::before { content: ""; width: 52px; height: 8px; border-radius: 999px; background: var(--gold); display: block; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
     input, select, textarea { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 10px; font: inherit; }
     textarea { min-height: 76px; resize: vertical; }
@@ -113,16 +115,7 @@
         </div>
       </div>
       <div class="intro-preview">
-        <article class="id-card sample-card">
-          <div class="logo-front">MAPPHEX</div>
-          <div class="front-shape"></div>
-          <div class="photo-ring"><span>PHOTO</span></div>
-          <div class="front-info">
-            <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name">Amina Cole</span></div>
-            <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number">MAPP/001</span></div>
-            <div class="detail-line"><span class="detail-label">Role:</span><span class="person-role">Staff</span></div>
-          </div>
-        </article>
+        <div class="public-templates" id="publicTemplatePreview"></div>
       </div>
     </section>
 
@@ -290,7 +283,7 @@
     const els = {
       sessionStatus: document.getElementById('sessionStatus'), logoutBtn: document.getElementById('logoutBtn'),
       portalIntro: document.getElementById('portalIntro'), entryArea: document.getElementById('entryArea'), startRegisterBtn: document.getElementById('startRegisterBtn'),
-      alreadyRegisteredBtn: document.getElementById('alreadyRegisteredBtn'), loginPanel: document.getElementById('loginPanel'),
+      alreadyRegisteredBtn: document.getElementById('alreadyRegisteredBtn'), loginPanel: document.getElementById('loginPanel'), publicTemplatePreview: document.getElementById('publicTemplatePreview'),
       orgType: document.getElementById('orgType'), templateGallery: document.getElementById('templateGallery'),
       orgRegisterForm: document.getElementById('orgRegisterForm'), loginForm: document.getElementById('loginForm'), loginNotice: document.getElementById('loginNotice'),
       registerLogoValue: document.getElementById('registerLogoValue'), registerLogoPreview: document.getElementById('registerLogoPreview'), registerLogoFile: document.getElementById('registerLogoFile'),
@@ -370,8 +363,17 @@
     async function loadSetup() {
       const data = await api('/api/templates');
       els.orgType.innerHTML = Object.entries(data.organizationTypes).map(([key, rule]) => `<option value="${key}">${rule.label}</option>`).join('');
+      renderPublicTemplates(data.templates);
       renderTemplateGallery(data.templates, 'sample');
       if (state.masterToken) await loadScanRegistration();
+    }
+
+    function renderPublicTemplates(templates) {
+      els.publicTemplatePreview.innerHTML = (templates || []).slice(0, 4).map((template) => `
+        <div class="public-template">
+          <strong>${template.name}</strong>
+          <span>${template.description}</span>
+        </div>`).join('');
     }
 
     function renderTemplateGallery(templates, selectedId) {
