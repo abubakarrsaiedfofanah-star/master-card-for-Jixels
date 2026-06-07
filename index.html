@@ -810,7 +810,7 @@
         return;
       }
       state.currentRecord = record;
-      els.cardId.textContent = printedCardId;
+      els.cardId.textContent = record.isMaster ? printedCardId : (record.nationalId || record.id || '');
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
@@ -1127,6 +1127,7 @@
           id: card.id,
           name: card.name,
           position: card.position,
+          nationalId: card.nationalId,
           photo: card.photo,
           status: 'Approved',
           verificationToken: token,

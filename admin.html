@@ -449,7 +449,7 @@
             <div class="photo-ring"><span id="cardPhotoPlaceholder">PHOTO</span><img id="cardPhoto" class="hidden" alt=""></div>
             <div class="front-info">
               <div class="detail-line"><span class="detail-label">Name:</span><span class="person-name" id="cardName"></span></div>
-              <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="cardPrintedId">29352273</span></div>
+              <div class="detail-line"><span class="detail-label">ID NO:</span><span class="id-number" id="cardPrintedId"></span></div>
               <div class="detail-line"><span class="detail-label">Position:</span><span class="person-role" id="cardPosition"></span></div>
             </div>
           </article>
@@ -574,6 +574,7 @@
       cardPhoto: document.getElementById('cardPhoto'),
       cardPhotoPlaceholder: document.getElementById('cardPhotoPlaceholder'),
       cardName: document.getElementById('cardName'),
+      cardPrintedId: document.getElementById('cardPrintedId'),
       cardPosition: document.getElementById('cardPosition'),
       cardQr: document.getElementById('cardQr'),
       printCardBtn: document.getElementById('printCardBtn'),
@@ -865,6 +866,7 @@
       els.cardEmpty.classList.add('hidden');
       els.cardStage.classList.remove('hidden');
       els.cardName.textContent = card.name || '';
+      els.cardPrintedId.textContent = card.nationalId || card.id || '';
       els.cardPosition.textContent = card.position || '';
       if (card.photo) {
         els.cardPhoto.src = card.photo;

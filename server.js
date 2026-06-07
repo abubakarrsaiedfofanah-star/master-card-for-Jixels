@@ -809,6 +809,7 @@ function publicCard(card) {
     name: card.name,
     location: card.location,
     branch: card.branch,
+    nationalId: valid ? nationalId : '',
     nationalIdLast4: nationalId ? nationalId.slice(-4) : '',
     photo: card.photo || '',
     position: card.position,
