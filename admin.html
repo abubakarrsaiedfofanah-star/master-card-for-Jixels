@@ -327,9 +327,9 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
+              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Date</th><th>Time</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
             </thead>
-            <tbody id="attendanceRows"><tr><td colspan="8">No sign in/out records loaded.</td></tr></tbody>
+            <tbody id="attendanceRows"><tr><td colspan="10">No sign in/out records loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -783,6 +783,18 @@
       return value ? new Date(value).toLocaleString() : '';
     }
 
+    function latestScanTime(record) {
+      return record.signedOutAt || record.signedInAt || record.updatedAt || record.createdAt || '';
+    }
+
+    function formatDate(value) {
+      return value ? new Date(value).toLocaleDateString() : '';
+    }
+
+    function formatTime(value) {
+      return value ? new Date(value).toLocaleTimeString() : '';
+    }
+
     function gpsText(record) {
       const lat = record.signOutLatitude ?? record.signInLatitude;
       const lon = record.signOutLongitude ?? record.signInLongitude;
@@ -799,11 +811,13 @@
           <td>${record.workerId || record.cardId || ''}</td>
           <td>${record.branch || ''}</td>
           <td>${record.position || ''}</td>
+          <td>${formatDate(latestScanTime(record))}</td>
+          <td>${formatTime(latestScanTime(record))}</td>
           <td>${formatDateTime(record.signedInAt)}</td>
           <td>${formatDateTime(record.signedOutAt)}</td>
           <td>${record.status || ''}</td>
           <td>${gpsText(record)}</td>
-        </tr>`).join('') : '<tr><td colspan="8">No sign in/out records loaded.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="10">No sign in/out records loaded.</td></tr>';
     }
 
     function activeScannerDevice() {

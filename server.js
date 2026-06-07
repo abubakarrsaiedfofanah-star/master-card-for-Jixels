@@ -839,6 +839,11 @@ function isAdmin(req) {
   return Boolean(currentAdmin(req));
 }
 
+async function scannerInviteUsed(nonce) {
+  const audit = await loadAudit();
+  return audit.some((entry) => entry.action === 'scanner-invite-used' && entry.cardId === nonce);
+}
+
 async function appendAudit(action, card, actor = 'system') {
   const entry = { action, cardId: card?.id || '', actor, at: new Date().toISOString() };
   if (!useSupabase) {
@@ -1115,6 +1120,10 @@ async function handleApi(req, res, url) {
         sendJson(res, 403, { error: 'This scanner setup link is only for the phone number admin registered.' });
         return true;
       }
+      if (await scannerInviteUsed(invite.nonce)) {
+        sendJson(res, 403, { error: 'This scanner setup link has already been used. Ask admin for a new link.' });
+        return true;
+      }
       const deviceId = normalizeDeviceId(payload.deviceId);
       if (!deviceId) {
         sendJson(res, 400, { error: 'Device ID is required.' });
@@ -1154,6 +1163,7 @@ async function handleApi(req, res, url) {
       }
       await saveScannerDevices(devices);
       await appendAudit('scanner-phone-registered', { id: deviceId }, 'scanner-invite');
+      await appendAudit('scanner-invite-used', { id: invite.nonce }, scannerPhone);
       const currentDevice = devices.find((item) => item.deviceId === deviceId);
       sendJson(res, 200, { device: publicScannerDevice(currentDevice), scannerSession: currentDevice ? signScannerSession(currentDevice) : '' });
     } catch (error) {

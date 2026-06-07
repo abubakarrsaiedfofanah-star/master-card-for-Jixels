@@ -138,6 +138,10 @@
       return state.deviceId;
     }
 
+    function isInstalledApp() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
     function updateDeviceNotice() {
       if (inviteToken && !state.scannerSession) {
         els.deviceNotice.textContent = 'Set up this phone as a Jixels scanner phone.';
@@ -148,6 +152,16 @@
         return;
       }
       if (state.deviceId) {
+        if (state.scannerSession && !isInstalledApp()) {
+          els.deviceNotice.textContent = 'Install and open the Scanner App before scanning worker ID cards.';
+          els.deviceNotice.className = 'notice danger';
+          els.installBtn.classList.remove('hidden');
+          els.setupBox.classList.add('hidden');
+          els.loginBox.classList.add('hidden');
+          els.scannerControls.classList.add('hidden');
+          return;
+        }
+        els.installBtn.classList.add('hidden');
         els.deviceNotice.textContent = state.scannerSession ? 'Scanner unlocked on this registered phone.' : 'This phone is registered. Enter scanner password to continue.';
         els.deviceNotice.className = 'notice ok';
         els.setupBox.classList.add('hidden');
@@ -223,7 +237,7 @@
       els.setupScannerPassword.value = '';
       history.replaceState(null, '', '/scanner');
       updateDeviceNotice();
-      els.scanNotice.textContent = 'This phone is ready for scanning. You can install the app and scan worker ID cards.';
+      els.scanNotice.textContent = 'This phone is ready. Install and open the Scanner App before scanning worker ID cards.';
       els.scanNotice.className = 'notice ok';
     }
 
@@ -249,6 +263,7 @@
 
     async function recordScan() {
       if (!state.deviceId || !state.scannerSession) throw new Error('Enter scanner password first.');
+      if (!isInstalledApp()) throw new Error('Open the installed Scanner App before recording scans.');
       await loadPersonDetails();
       els.scanNotice.textContent = 'Capturing GPS...';
       els.scanNotice.className = 'notice';
