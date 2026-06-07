@@ -596,6 +596,23 @@
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
 
+    async function readJsonResponse(response, fallbackMessage) {
+      const text = await response.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: text };
+        }
+      }
+      if (!response.ok) {
+        if (response.status === 401) logout();
+        throw new Error(data.error || fallbackMessage || 'Request failed.');
+      }
+      return data;
+    }
+
     function ensureScannerDeviceId() {
       if (!state.scannerDeviceId) {
         const randomId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -668,8 +685,7 @@
 
     async function loadAttendance() {
       const response = await fetch('/api/attendance', { headers: headers() });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to load sign in/out records.');
+      const data = await readJsonResponse(response, 'Unable to load sign in/out records.');
       state.attendance = data.attendance || [];
       renderAttendance();
     }
@@ -677,8 +693,7 @@
     async function loadScannerDevices() {
       ensureScannerDeviceId();
       const response = await fetch('/api/scanner-devices', { headers: headers() });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to load scanner phones.');
+      const data = await readJsonResponse(response, 'Unable to load scanner phones.');
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
     }
@@ -692,8 +707,7 @@
           deviceName: els.scannerDeviceName.value.trim() || 'Scanner phone'
         })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to register this phone.');
+      const data = await readJsonResponse(response, 'Unable to register this phone.');
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
       els.attendanceNotice.textContent = 'This phone is registered for scanning.';
@@ -1022,8 +1036,7 @@
           ...location
         })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to record sign in/out.');
+      const data = await readJsonResponse(response, 'Unable to record sign in/out.');
       els.attendanceNotice.textContent = data.message || 'Sign in/out recorded.';
       els.scanToken.value = '';
       await loadAttendance();
@@ -1183,8 +1196,7 @@
           headers: { ...headers(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: button.dataset.deviceStatus })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Unable to update scanner phone.');
+        const data = await readJsonResponse(response, 'Unable to update scanner phone.');
         state.scannerDevices = data.devices || state.scannerDevices;
         renderScannerDevices();
       } catch (error) {
