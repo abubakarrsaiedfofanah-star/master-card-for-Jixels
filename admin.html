@@ -327,10 +327,17 @@
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
             <input id="scannerDeviceName" placeholder="Phone name, example: Reception phone">
-            <input id="scannerPassword" type="password" placeholder="Scanner password">
-            <button type="button" id="registerScannerDeviceBtn">Register This Phone</button>
+            <input id="scannerPhone" inputmode="tel" placeholder="Phone number for WhatsApp">
+            <button type="button" id="registerScannerDeviceBtn">Create Scanner Setup Link</button>
             <button type="button" class="secondary hidden" id="installScannerAppBtn">Install Scanner App</button>
             <a class="button secondary" href="/scanner" target="_blank" rel="noopener">Open Scanner App</a>
+          </div>
+          <div class="hidden" id="scannerInviteBox">
+            <a id="scannerInviteLink" href="#" target="_blank" rel="noopener">Scanner setup link</a>
+            <div class="controls">
+              <a class="button" id="whatsappScannerInviteLink" href="#" target="_blank" rel="noopener">Send WhatsApp</a>
+              <button type="button" class="secondary" id="copyScannerInviteBtn">Copy Link</button>
+            </div>
           </div>
         </div>
         <div class="summary" id="attendanceNotice"></div>
@@ -559,10 +566,14 @@
       attendanceRows: document.getElementById('attendanceRows'),
       scannerDeviceStatus: document.getElementById('scannerDeviceStatus'),
       scannerDeviceName: document.getElementById('scannerDeviceName'),
-      scannerPassword: document.getElementById('scannerPassword'),
+      scannerPhone: document.getElementById('scannerPhone'),
       registerScannerDeviceBtn: document.getElementById('registerScannerDeviceBtn'),
       installScannerAppBtn: document.getElementById('installScannerAppBtn'),
       scannerDeviceRows: document.getElementById('scannerDeviceRows'),
+      scannerInviteBox: document.getElementById('scannerInviteBox'),
+      scannerInviteLink: document.getElementById('scannerInviteLink'),
+      whatsappScannerInviteLink: document.getElementById('whatsappScannerInviteLink'),
+      copyScannerInviteBtn: document.getElementById('copyScannerInviteBtn'),
       dashboardSummary: document.getElementById('dashboardSummary'),
       menuBtn: document.getElementById('menuBtn'),
       sideMenu: document.getElementById('sideMenu'),
@@ -705,30 +716,22 @@
       renderScannerDevices();
     }
 
-    async function registerScannerDevice() {
-      const data = await adminRequest('/api/scanner-devices', {
+    async function createScannerInvite() {
+      const deviceName = els.scannerDeviceName.value.trim() || 'Scanner phone';
+      const data = await adminRequest('/api/scanner-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceId: ensureScannerDeviceId(),
-          deviceName: els.scannerDeviceName.value.trim() || 'Scanner phone',
-          scannerPassword: els.scannerPassword.value.trim()
-        })
-      }, 'Unable to register this phone.');
-      if (data.scannerSession) {
-        state.scannerSession = data.scannerSession;
-        localStorage.setItem('jixelsScannerSession', state.scannerSession);
-      }
-      els.scannerPassword.value = '';
-      state.scannerDevices = data.devices || [];
-      renderScannerDevices();
-      els.attendanceNotice.textContent = 'This phone is registered. Open or install the Scanner App for daily sign in/out scanning.';
-      if (state.installPrompt) {
-        state.installPrompt.prompt();
-        await state.installPrompt.userChoice.catch(() => {});
-        state.installPrompt = null;
-        els.installScannerAppBtn.classList.add('hidden');
-      }
+        body: JSON.stringify({ deviceName })
+      }, 'Unable to create scanner setup link.');
+      const phone = whatsappPhone(els.scannerPhone.value);
+      const message = `Open this Jixels scanner setup link on the phone that will scan ID cards: ${data.url}`;
+      els.scannerInviteLink.href = data.url;
+      els.scannerInviteLink.textContent = data.url;
+      els.whatsappScannerInviteLink.href = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      els.scannerInviteBox.classList.remove('hidden');
+      els.attendanceNotice.textContent = 'Send this setup link to the phone that will scan ID cards. They will set a scanner password on their own phone.';
     }
 
     function startAutoRefresh() {
@@ -1190,7 +1193,17 @@
       }
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
-    els.registerScannerDeviceBtn.addEventListener('click', () => registerScannerDevice().catch((error) => alert(friendlyError(error))));
+    els.registerScannerDeviceBtn.addEventListener('click', () => createScannerInvite().catch((error) => alert(friendlyError(error))));
+    els.copyScannerInviteBtn.addEventListener('click', async () => {
+      const url = els.scannerInviteLink.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        els.copyScannerInviteBtn.textContent = 'Copied';
+        setTimeout(() => { els.copyScannerInviteBtn.textContent = 'Copy Link'; }, 1600);
+      } catch {
+        prompt('Copy this scanner setup link:', url);
+      }
+    });
     els.scannerDeviceRows.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-device-id]');
       if (!button) return;

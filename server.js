@@ -708,6 +708,47 @@ function readScannerSession(value) {
   }
 }
 
+function signScannerInvite(deviceName) {
+  const payload = base64UrlEncode(JSON.stringify({
+    scope: 'scanner-invite',
+    deviceName: String(deviceName || 'Scanner phone').trim() || 'Scanner phone',
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    nonce: crypto.randomBytes(12).toString('hex')
+  }));
+  const signature = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  return `v1.${payload}.${signature}`;
+}
+
+function readScannerInvite(value) {
+  const token = String(value || '').trim();
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'v1') return null;
+  const [, payload, signature] = parts;
+  const expected = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+  try {
+    const data = JSON.parse(base64UrlDecode(payload));
+    if (data.scope !== 'scanner-invite' || Date.now() > Number(data.exp || 0)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function scannerInviteUrl(req, token) {
+  const url = new URL('/scanner', appBaseUrl(req));
+  url.searchParams.set('invite', token);
+  return url.href;
+}
+
 function verifyScannerPassword(device, password) {
   return Boolean(device?.passwordSalt && device?.passwordHash) &&
     hashPassword(password || '', device.passwordSalt) === device.passwordHash;
@@ -1024,6 +1065,83 @@ async function handleApi(req, res, url) {
       sendJson(res, 200, { devices: (await loadScannerDevices()).map(publicScannerDevice) });
     } catch (error) {
       sendJson(res, 500, { error: error.message || 'Unable to load scanner phones.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-invite' && req.method === 'POST') {
+    const admin = currentAdmin(req);
+    if (!admin) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const token = signScannerInvite(payload.deviceName);
+      const inviteUrl = scannerInviteUrl(req, token);
+      await appendAudit('scanner-invite-created', { id: String(payload.deviceName || 'Scanner phone') }, admin.username);
+      sendJson(res, 200, { url: inviteUrl, token });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to create scanner setup link.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-invite/accept' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const invite = readScannerInvite(payload.invite);
+      if (!invite) {
+        sendJson(res, 403, { error: 'Scanner setup link is invalid or expired. Ask admin for a new link.' });
+        return true;
+      }
+      const deviceId = normalizeDeviceId(payload.deviceId);
+      if (!deviceId) {
+        sendJson(res, 400, { error: 'Device ID is required.' });
+        return true;
+      }
+      const scannerPassword = String(payload.scannerPassword || '').trim();
+      if (scannerPassword.length < 4) {
+        sendJson(res, 400, { error: 'Scanner password must be at least 4 characters.' });
+        return true;
+      }
+      const devices = await loadScannerDevices();
+      const existing = devices.find((item) => item.deviceId === deviceId);
+      const now = new Date().toISOString();
+      const passwordSalt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = hashPassword(scannerPassword, passwordSalt);
+      const deviceName = String(payload.deviceName || invite.deviceName || 'Scanner phone').trim() || 'Scanner phone';
+      if (existing) {
+        existing.deviceName = deviceName;
+        existing.deviceSecret = existing.deviceSecret || crypto.randomBytes(32).toString('hex');
+        existing.passwordSalt = passwordSalt;
+        existing.passwordHash = passwordHash;
+        existing.status = 'Active';
+        existing.updatedAt = now;
+      } else {
+        devices.unshift({
+          id: `SCN-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+          deviceId,
+          deviceSecret: crypto.randomBytes(32).toString('hex'),
+          passwordSalt,
+          passwordHash,
+          deviceName,
+          registeredBy: 'scanner-invite',
+          status: 'Active',
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+      await saveScannerDevices(devices);
+      await appendAudit('scanner-phone-registered', { id: deviceId }, 'scanner-invite');
+      const currentDevice = devices.find((item) => item.deviceId === deviceId);
+      sendJson(res, 200, { device: publicScannerDevice(currentDevice), scannerSession: currentDevice ? signScannerSession(currentDevice) : '' });
+    } catch (error) {
+      if (error.code === 'PGRST204' && String(error.message || '').includes('password_hash')) {
+        sendJson(res, 400, { error: 'Supabase scanner_devices table is missing password_hash. Run supabase-scanner-password-migration.sql in the Supabase SQL editor, then try again.' });
+        return true;
+      }
+      sendJson(res, 400, { error: error.message || 'Unable to register scanner phone.' });
     }
     return true;
   }
