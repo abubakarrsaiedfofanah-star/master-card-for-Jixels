@@ -307,7 +307,7 @@
         <h2>Dashboard</h2>
         <button type="button" class="active" data-tab="dashboard">Dashboard</button>
         <button type="button" data-tab="registrations">Registrations</button>
-        <button type="button" data-tab="attendance">Scanner Phones</button>
+        <button type="button" data-tab="attendance">Attendance</button>
         <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
@@ -322,7 +322,7 @@
       </section>
 
       <section class="panel tab-panel hidden" data-panel="attendance">
-        <h2>Scanner Phones</h2>
+        <h2>Attendance</h2>
         <div class="notice-box" id="scannerDeviceBox">
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
@@ -736,6 +736,10 @@
       state.refreshTimer = setInterval(() => {
         if (!state.token || document.hidden) return;
         loadCards().catch((error) => console.warn(error.message));
+        const attendancePanel = document.querySelector('[data-panel="attendance"]');
+        if (attendancePanel && !attendancePanel.classList.contains('hidden')) {
+          loadAttendance().catch((error) => console.warn(error.message));
+        }
       }, 3000);
     }
 
