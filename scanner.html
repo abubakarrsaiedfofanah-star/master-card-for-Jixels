@@ -68,7 +68,7 @@
             <option value="sign-out">Sign Out</option>
           </select>
         </label>
-        <button type="button" id="recordBtn">Record Scan</button>
+        <button type="button" id="recordBtn">Confirm Sign In</button>
         <details>
           <summary>Change scanner password</summary>
           <label>Current password<input id="currentScannerPassword" type="password"></label>
@@ -206,7 +206,7 @@
         })
       });
       const data = await readJson(response);
-      els.scanNotice.textContent = data.message || 'Scan recorded.';
+      els.scanNotice.textContent = data.message ? `${data.message} Sent to admin attendance.` : 'Scan sent to admin attendance.';
       els.scanNotice.className = 'notice ok';
       els.scanToken.value = '';
       els.personBox.classList.add('hidden');
@@ -293,6 +293,9 @@
       els.scanNotice.textContent = error.message || 'Unable to load worker details.';
       els.scanNotice.className = 'notice danger';
     }));
+    els.scanAction.addEventListener('change', () => {
+      els.recordBtn.textContent = els.scanAction.value === 'sign-out' ? 'Confirm Sign Out' : 'Confirm Sign In';
+    });
     els.cameraBtn.addEventListener('click', () => startCamera().catch((error) => {
       els.scanNotice.textContent = error.message || 'Unable to open camera.';
       els.scanNotice.className = 'notice danger';
