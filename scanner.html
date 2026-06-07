@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4b9bda">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>Jixels Scanner</title>
+  <style>
+    :root { --blue: #4b9bda; --ink: #202938; --line: #d9e0ea; --page: #eef2f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+    main { width: min(560px, calc(100% - 24px)); margin: 0 auto; padding: 18px 0 32px; }
+    .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+    h1 { margin: 0; font-size: 24px; }
+    label { display: grid; gap: 6px; font-weight: 800; font-size: 13px; }
+    input, select { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 12px; font: inherit; }
+    button, a.button { border: 0; border-radius: 6px; padding: 12px 14px; background: var(--blue); color: #fff; font-weight: 800; text-decoration: none; text-align: center; }
+    button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .notice { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 12px; font-weight: 700; line-height: 1.4; }
+    .danger { border-color: #fecaca; background: #fff1f2; color: #991b1b; }
+    .ok { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
+    video { width: 100%; border-radius: 8px; background: #111827; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <h1>Worker Sign In/Out</h1>
+      <div class="notice" id="deviceNotice">Checking scanner phone...</div>
+      <div class="row">
+        <a class="button secondary" href="/admin">Admin</a>
+        <button type="button" class="secondary hidden" id="installBtn">Install App</button>
+      </div>
+      <label>Card QR token or scanned URL
+        <input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result">
+      </label>
+      <div class="row">
+        <button type="button" class="secondary" id="cameraBtn">Open Camera Scanner</button>
+        <button type="button" class="secondary hidden" id="stopCameraBtn">Stop Camera</button>
+      </div>
+      <video class="hidden" id="cameraPreview" playsinline muted></video>
+      <label>Action
+        <select id="scanAction">
+          <option value="sign-in">Sign In</option>
+          <option value="sign-out">Sign Out</option>
+        </select>
+      </label>
+      <button type="button" id="recordBtn">Record Scan</button>
+      <div class="notice hidden" id="scanNotice"></div>
+    </section>
+  </main>
+  <script>
+    const state = {
+      deviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
+      deviceSecret: localStorage.getItem('jixelsScannerDeviceSecret') || '',
+      installPrompt: null,
+      cameraStream: null,
+      scanTimer: null
+    };
+    const els = {
+      deviceNotice: document.getElementById('deviceNotice'),
+      installBtn: document.getElementById('installBtn'),
+      scanToken: document.getElementById('scanToken'),
+      scanAction: document.getElementById('scanAction'),
+      cameraBtn: document.getElementById('cameraBtn'),
+      stopCameraBtn: document.getElementById('stopCameraBtn'),
+      cameraPreview: document.getElementById('cameraPreview'),
+      recordBtn: document.getElementById('recordBtn'),
+      scanNotice: document.getElementById('scanNotice')
+    };
+
+    function updateDeviceNotice() {
+      if (state.deviceId && state.deviceSecret) {
+        els.deviceNotice.textContent = 'This phone is registered for scanning.';
+        els.deviceNotice.className = 'notice ok';
+        return;
+      }
+      els.deviceNotice.textContent = 'This phone is not registered yet. Ask an admin to open /admin on this phone and tap Register This Phone.';
+      els.deviceNotice.className = 'notice danger';
+    }
+
+    function currentLocation() {
+      if (!navigator.geolocation) return Promise.resolve({});
+      const capture = (options) => new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            locationAccuracy: position.coords.accuracy
+          }),
+          () => resolve({}),
+          options
+        );
+      });
+      return Promise.all([
+        capture({ enableHighAccuracy: false, timeout: 3500, maximumAge: 15000 }),
+        capture({ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
+      ]).then((locations) => locations
+        .filter((location) => location.latitude !== undefined)
+        .sort((a, b) => Number(a.locationAccuracy || Infinity) - Number(b.locationAccuracy || Infinity))[0] || {});
+    }
+
+    async function readJson(response) {
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!response.ok) throw new Error(data.error || 'Request failed.');
+      return data;
+    }
+
+    async function recordScan() {
+      if (!state.deviceId || !state.deviceSecret) throw new Error('This phone is not registered for scanning.');
+      const token = els.scanToken.value.trim();
+      if (!token) throw new Error('Scan or paste the worker card QR first.');
+      els.scanNotice.textContent = 'Capturing GPS...';
+      els.scanNotice.className = 'notice';
+      const location = await currentLocation();
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          action: els.scanAction.value,
+          deviceId: state.deviceId,
+          deviceSecret: state.deviceSecret,
+          ...location
+        })
+      });
+      const data = await readJson(response);
+      els.scanNotice.textContent = data.message || 'Scan recorded.';
+      els.scanNotice.className = 'notice ok';
+      els.scanToken.value = '';
+    }
+
+    async function startCamera() {
+      if (!('BarcodeDetector' in window)) throw new Error('Camera QR scanning is not supported on this browser. Use the phone camera/scanner app and paste the result.');
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      state.cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      els.cameraPreview.srcObject = state.cameraStream;
+      els.cameraPreview.classList.remove('hidden');
+      els.stopCameraBtn.classList.remove('hidden');
+      await els.cameraPreview.play();
+      state.scanTimer = setInterval(async () => {
+        try {
+          const codes = await detector.detect(els.cameraPreview);
+          if (codes[0]?.rawValue) {
+            els.scanToken.value = codes[0].rawValue;
+            stopCamera();
+          }
+        } catch {}
+      }, 700);
+    }
+
+    function stopCamera() {
+      if (state.scanTimer) clearInterval(state.scanTimer);
+      state.scanTimer = null;
+      if (state.cameraStream) state.cameraStream.getTracks().forEach((track) => track.stop());
+      state.cameraStream = null;
+      els.cameraPreview.classList.add('hidden');
+      els.stopCameraBtn.classList.add('hidden');
+    }
+
+    els.recordBtn.addEventListener('click', () => recordScan().catch((error) => {
+      els.scanNotice.textContent = error.message || 'Unable to record scan.';
+      els.scanNotice.className = 'notice danger';
+    }));
+    els.cameraBtn.addEventListener('click', () => startCamera().catch((error) => {
+      els.scanNotice.textContent = error.message || 'Unable to open camera.';
+      els.scanNotice.className = 'notice danger';
+    }));
+    els.stopCameraBtn.addEventListener('click', stopCamera);
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      state.installPrompt = event;
+      els.installBtn.classList.remove('hidden');
+    });
+    els.installBtn.addEventListener('click', async () => {
+      if (!state.installPrompt) return;
+      state.installPrompt.prompt();
+      await state.installPrompt.userChoice.catch(() => {});
+      state.installPrompt = null;
+      els.installBtn.classList.add('hidden');
+    });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    updateDeviceNotice();
+  </script>
+</body>
+</html>

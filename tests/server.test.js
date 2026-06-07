@@ -101,7 +101,7 @@ test('backup rejects legacy GET requests', async () => {
   }
 });
 
-test('scan endpoint requires admin authentication', async () => {
+test('scan endpoint requires a registered scanner phone', async () => {
   const server = createServer();
   const baseUrl = await listen(server);
   try {
@@ -112,8 +112,8 @@ test('scan endpoint requires admin authentication', async () => {
     });
     const body = await response.json();
 
-    assert.equal(response.status, 401);
-    assert.match(body.error, /log in/i);
+    assert.equal(response.status, 400);
+    assert.match(body.error, /not registered/i);
   } finally {
     await close(server);
   }

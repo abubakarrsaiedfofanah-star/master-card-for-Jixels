@@ -265,6 +265,7 @@ function fromSupabaseScannerDevice(row) {
   return {
     id: row.id,
     deviceId: row.device_id,
+    deviceSecret: row.device_secret || '',
     deviceName: row.device_name || '',
     registeredBy: row.registered_by || 'admin',
     status: row.status || 'Active',
@@ -277,6 +278,7 @@ function toSupabaseScannerDevice(item) {
   return {
     id: item.id,
     device_id: item.deviceId,
+    device_secret: item.deviceSecret || '',
     device_name: item.deviceName || '',
     registered_by: item.registeredBy || 'admin',
     status: item.status || 'Active',
@@ -650,7 +652,16 @@ async function requireRegisteredScannerDevice(payload) {
   const devices = await loadScannerDevices();
   const device = devices.find((item) => item.deviceId === deviceId && (item.status || 'Active') === 'Active');
   if (!device) throw new Error('This phone is not registered for scanning.');
+  if (device.deviceSecret && String(payload.deviceSecret || '') !== device.deviceSecret) {
+    throw new Error('This scanner app is not authorized on this phone. Register this phone again from admin.');
+  }
   return device;
+}
+
+function publicScannerDevice(device) {
+  if (!device) return device;
+  const { deviceSecret, ...safeDevice } = device;
+  return safeDevice;
 }
 
 function currentOpenAttendance(records, cardId) {
@@ -960,7 +971,7 @@ async function handleApi(req, res, url) {
       return true;
     }
     try {
-      sendJson(res, 200, { devices: await loadScannerDevices() });
+      sendJson(res, 200, { devices: (await loadScannerDevices()).map(publicScannerDevice) });
     } catch (error) {
       sendJson(res, 500, { error: error.message || 'Unable to load scanner phones.' });
     }
@@ -985,12 +996,15 @@ async function handleApi(req, res, url) {
       const now = new Date().toISOString();
       if (existing) {
         existing.deviceName = String(payload.deviceName || existing.deviceName || 'Scanner phone').trim();
+        existing.deviceSecret = existing.deviceSecret || crypto.randomBytes(32).toString('hex');
         existing.status = 'Active';
         existing.updatedAt = now;
       } else {
+        const deviceSecret = crypto.randomBytes(32).toString('hex');
         devices.unshift({
           id: `SCN-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
           deviceId,
+          deviceSecret,
           deviceName: String(payload.deviceName || 'Scanner phone').trim(),
           registeredBy: admin.username,
           status: 'Active',
@@ -1000,7 +1014,8 @@ async function handleApi(req, res, url) {
       }
       await saveScannerDevices(devices);
       await appendAudit('scanner-phone-registered', { id: deviceId }, admin.username);
-      sendJson(res, 200, { devices });
+      const currentDevice = devices.find((item) => item.deviceId === deviceId);
+      sendJson(res, 200, { devices: devices.map(publicScannerDevice), scannerDeviceSecret: currentDevice?.deviceSecret || '' });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to register scanner phone.' });
     }
@@ -1026,7 +1041,7 @@ async function handleApi(req, res, url) {
       device.updatedAt = new Date().toISOString();
       await saveScannerDevices(devices);
       await appendAudit(`scanner-phone:${device.status}`, { id: device.deviceId }, admin.username);
-      sendJson(res, 200, { device, devices });
+      sendJson(res, 200, { device: publicScannerDevice(device), devices: devices.map(publicScannerDevice) });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to update scanner phone.' });
     }
@@ -1116,11 +1131,6 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/scan' && req.method === 'POST') {
-    const admin = currentAdmin(req);
-    if (!admin) {
-      sendJson(res, 401, { error: loginRequiredMessage });
-      return true;
-    }
     try {
       const payload = JSON.parse(await readBody(req));
       const action = scanAction(payload.action);
@@ -1361,7 +1371,9 @@ const app = async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (await handleApi(req, res, url)) return;
 
-  const requested = url.pathname === '/' ? '/index.html' : (url.pathname === '/admin' ? '/admin.html' : url.pathname);
+  const requested = url.pathname === '/'
+    ? '/index.html'
+    : (url.pathname === '/admin' ? '/admin.html' : (url.pathname === '/scanner' ? '/scanner.html' : url.pathname));
   const filePath = path.join(root, path.normalize(requested));
 
   if (!filePath.startsWith(root)) {

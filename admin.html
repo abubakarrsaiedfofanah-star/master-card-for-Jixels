@@ -329,6 +329,7 @@
             <input id="scannerDeviceName" placeholder="Phone name, example: Reception phone">
             <button type="button" id="registerScannerDeviceBtn">Register This Phone</button>
             <button type="button" class="secondary hidden" id="installScannerAppBtn">Install Scanner App</button>
+            <a class="button secondary" href="/scanner" target="_blank" rel="noopener">Open Scanner App</a>
           </div>
         </div>
         <form id="attendanceForm">
@@ -502,6 +503,7 @@
       attendance: [],
       scannerDevices: [],
       scannerDeviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
+      scannerDeviceSecret: localStorage.getItem('jixelsScannerDeviceSecret') || '',
       installPrompt: null,
       editingId: '',
       currentCard: null,
@@ -722,9 +724,13 @@
           deviceName: els.scannerDeviceName.value.trim() || 'Scanner phone'
         })
       }, 'Unable to register this phone.');
+      if (data.scannerDeviceSecret) {
+        state.scannerDeviceSecret = data.scannerDeviceSecret;
+        localStorage.setItem('jixelsScannerDeviceSecret', state.scannerDeviceSecret);
+      }
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
-      els.attendanceNotice.textContent = 'This phone is registered for scanning.';
+      els.attendanceNotice.textContent = 'This phone is registered. Open or install the Scanner App for daily sign in/out scanning.';
     }
 
     function startAutoRefresh() {
@@ -1047,6 +1053,7 @@
           token: els.scanToken.value.trim(),
           action: els.scanAction.value,
           deviceId: ensureScannerDeviceId(),
+          deviceSecret: state.scannerDeviceSecret,
           ...location
         })
       }, 'Unable to record sign in/out.');
