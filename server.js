@@ -309,7 +309,14 @@ function supabaseRequest(method, table, query = '', body) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(data || `Supabase request failed with ${res.statusCode}`));
+          let errorData = null;
+          try { errorData = data ? JSON.parse(data) : null; } catch {}
+          const message = errorData?.message || errorData?.error || data || `Supabase request failed with ${res.statusCode}`;
+          const error = new Error(message);
+          error.code = errorData?.code;
+          error.details = errorData?.details;
+          error.hint = errorData?.hint;
+          reject(error);
           return;
         }
         if (!data) {
@@ -1071,6 +1078,10 @@ async function handleApi(req, res, url) {
       const currentDevice = devices.find((item) => item.deviceId === deviceId);
       sendJson(res, 200, { devices: devices.map(publicScannerDevice), scannerSession: currentDevice ? signScannerSession(currentDevice) : '' });
     } catch (error) {
+      if (error.code === 'PGRST204' && String(error.message || '').includes('password_hash')) {
+        sendJson(res, 400, { error: 'Supabase scanner_devices table is missing password_hash. Run supabase-scanner-password-migration.sql in the Supabase SQL editor, then try again.' });
+        return true;
+      }
       sendJson(res, 400, { error: error.message || 'Unable to register scanner phone.' });
     }
     return true;
