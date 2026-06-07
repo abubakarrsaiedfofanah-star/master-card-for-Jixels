@@ -521,6 +521,37 @@
     .registration-only .records {
       display: none !important;
     }
+    .registration-only .app {
+      width: min(760px, calc(100% - 28px));
+      min-height: 100vh;
+      display: grid;
+      align-content: center;
+      padding: 28px 0;
+    }
+    .registration-only .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 520px);
+      justify-content: center;
+      width: 100%;
+    }
+    .registration-only #apply {
+      width: 100%;
+      margin: 0 auto;
+    }
+    @media (max-width: 680px) {
+      .registration-only .app {
+        width: min(100% - 18px, 520px);
+        min-height: auto;
+        align-content: start;
+        padding: 12px 0 24px;
+      }
+      .registration-only .workspace {
+        grid-template-columns: 1fr;
+      }
+      .registration-only #apply {
+        padding: 14px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -732,7 +763,7 @@
     };
 
     function qrUrl(data) {
-      return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data)}`;
+      return `/api/qr?size=220&data=${encodeURIComponent(data)}`;
     }
 
     function isLocalRegistrationUrl() {
@@ -783,8 +814,9 @@
       els.cardName.textContent = record.name;
       els.cardPosition.textContent = record.position;
       const isMasterCard = Boolean(record.isMaster);
-      if (!isMasterCard && record.id && record.verificationToken) {
-        els.qrImage.src = qrUrl(verificationUrl(record.verificationToken));
+      const qrToken = record.qrToken || record.verificationToken || '';
+      if (!isMasterCard && record.id && qrToken) {
+        els.qrImage.src = qrUrl(verificationUrl(qrToken));
       } else if (masterRegistrationUrl) {
         els.qrImage.src = masterQrImage;
       } else {
@@ -803,8 +835,9 @@
     }
 
     function showTrackingLink(record) {
-      if (!record?.verificationToken) return;
-      const url = claimUrl(record.verificationToken);
+      const qrToken = record?.qrToken || record?.verificationToken || '';
+      if (!qrToken) return;
+      const url = claimUrl(qrToken);
       els.trackingLink.href = url;
       els.trackingLink.textContent = url;
       els.trackingBox.classList.remove('hidden');
@@ -892,21 +925,8 @@
     }
 
     async function loadRecords() {
-      if (!state.adminPin) {
-        state.records = [];
-        renderRecords();
-        return;
-      }
-      try {
-        const response = await fetch('/api/cards', { headers: { 'x-admin-pin': state.adminPin } });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Unable to load records.');
-        state.records = Array.isArray(data.cards) ? data.cards : [];
-        renderRecords();
-      } catch {
-        state.records = [];
-        renderRecords();
-      }
+      state.records = [];
+      renderRecords();
     }
 
     async function saveCard(payload) {
@@ -921,25 +941,11 @@
     }
 
     async function updateCard(id, payload) {
-      const response = await fetch(`/api/cards/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-admin-pin': state.adminPin },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to update card.');
-      return data.card;
+      throw new Error('Use the admin panel to edit saved cards.');
     }
 
     async function setStatus(id, status, inactiveReason = '') {
-      const response = await fetch(`/api/cards/${encodeURIComponent(id)}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-admin-pin': state.adminPin },
-        body: JSON.stringify({ status, inactiveReason })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to update status.');
-      return data.card;
+      throw new Error('Use the admin panel to update worker status.');
     }
 
     function resetForm() {
@@ -1066,6 +1072,8 @@
       els.form.classList.add('hidden');
       document.querySelector('.cards-row').classList.add('hidden');
       els.claimActions.classList.add('hidden');
+      els.claimPrintBtn.classList.add('hidden');
+      els.claimDownloadBtn.classList.add('hidden');
       els.verifyPanel.classList.remove('hidden');
       els.verifyBadge.className = `verify-badge ${valid ? 'valid' : 'invalid'}`;
       els.verifyBadge.textContent = valid ? 'VALID' : 'NOT VALID';
@@ -1121,7 +1129,8 @@
           position: card.position,
           photo: card.photo,
           status: 'Approved',
-          verificationToken: token
+          verificationToken: token,
+          qrToken: token
         });
         document.querySelector('.cards-row').classList.remove('hidden');
         els.claimActions.classList.remove('hidden');
@@ -1189,7 +1198,7 @@
       if (button.dataset.action === 'approve' || button.dataset.action === 'reject' || button.dataset.action === 'inactive') {
         const nextStatus = button.dataset.action === 'approve' ? 'Approved' : (button.dataset.action === 'inactive' ? 'Inactive' : 'Rejected');
         const inactiveReason = nextStatus === 'Inactive'
-          ? (prompt('Reason for marking this worker inactive?', record.inactiveReason || 'Left company') || 'This worker is no longer active.')
+          ? (prompt('Reason for marking this worker inactive?', record.inactiveReason || 'No longer with company') || 'This worker is no longer active.')
           : '';
         setStatus(record.id, nextStatus, inactiveReason).then((updated) => {
           const index = state.records.findIndex((item) => item.id === updated.id);
@@ -1209,9 +1218,7 @@
     });
 
     els.unlockBtn.addEventListener('click', () => {
-      state.adminPin = els.adminPin.value.trim();
-      sessionStorage.setItem(adminPinKey, state.adminPin);
-      loadRecords();
+      alert('Admin actions moved to the secure admin panel.');
     });
 
     els.searchInput.addEventListener('input', renderRecords);

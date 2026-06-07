@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4b9bda">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>Jixels Admin</title>
   <script>
     if (window.location.protocol === 'file:') {
@@ -305,6 +307,7 @@
         <h2>Dashboard</h2>
         <button type="button" class="active" data-tab="dashboard">Dashboard</button>
         <button type="button" data-tab="registrations">Registrations</button>
+        <button type="button" data-tab="attendance">Sign In/Out</button>
         <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
@@ -318,6 +321,45 @@
         <div class="dashboard-grid" id="dashboardSummary"></div>
       </section>
 
+      <section class="panel tab-panel hidden" data-panel="attendance">
+        <h2>Worker Sign In/Out</h2>
+        <div class="notice-box" id="scannerDeviceBox">
+          <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
+          <div class="controls">
+            <input id="scannerDeviceName" placeholder="Phone name, example: Reception phone">
+            <button type="button" id="registerScannerDeviceBtn">Register This Phone</button>
+            <button type="button" class="secondary hidden" id="installScannerAppBtn">Install Scanner App</button>
+          </div>
+        </div>
+        <form id="attendanceForm">
+          <label>Card QR token or scanned URL<input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result"></label>
+          <label>Action
+            <select id="scanAction">
+              <option value="sign-in">Sign In</option>
+              <option value="sign-out">Sign Out</option>
+            </select>
+          </label>
+          <button type="submit">Record Scan</button>
+        </form>
+        <div class="summary" id="attendanceNotice"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Registered Phone</th><th>Device ID</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
+            </thead>
+            <tbody id="scannerDeviceRows"><tr><td colspan="5">No scanner phones loaded.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
+            </thead>
+            <tbody id="attendanceRows"><tr><td colspan="8">No sign in/out records loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
       <form class="panel tab-panel hidden" id="editForm" data-panel="edit">
         <h2>Edit Card</h2>
         <label>ID No.<input id="editId" disabled></label>
@@ -328,7 +370,7 @@
         <label>Phone<input id="editPhone" required></label>
         <label>Email<input id="editEmail" type="email" required></label>
         <label>Position<input id="editPosition" required></label>
-        <label>Inactive reason<input id="editInactiveReason" placeholder="Example: Left company"></label>
+        <label>Inactive reason<input id="editInactiveReason" placeholder="Example: No longer with company"></label>
         <label>Status
           <select id="editStatus">
             <option>Pending</option>
@@ -457,6 +499,10 @@
       pin: sessionStorage.getItem('jixelsAdminPin') || '',
       token: sessionStorage.getItem('jixelsAdminToken') || '',
       records: [],
+      attendance: [],
+      scannerDevices: [],
+      scannerDeviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
+      installPrompt: null,
       editingId: '',
       currentCard: null,
       refreshTimer: null
@@ -516,6 +562,16 @@
       restoreInput: document.getElementById('restoreInput'),
       auditBtn: document.getElementById('auditBtn'),
       auditBox: document.getElementById('auditBox'),
+      attendanceForm: document.getElementById('attendanceForm'),
+      scanToken: document.getElementById('scanToken'),
+      scanAction: document.getElementById('scanAction'),
+      attendanceNotice: document.getElementById('attendanceNotice'),
+      attendanceRows: document.getElementById('attendanceRows'),
+      scannerDeviceStatus: document.getElementById('scannerDeviceStatus'),
+      scannerDeviceName: document.getElementById('scannerDeviceName'),
+      registerScannerDeviceBtn: document.getElementById('registerScannerDeviceBtn'),
+      installScannerAppBtn: document.getElementById('installScannerAppBtn'),
+      scannerDeviceRows: document.getElementById('scannerDeviceRows'),
       dashboardSummary: document.getElementById('dashboardSummary'),
       menuBtn: document.getElementById('menuBtn'),
       sideMenu: document.getElementById('sideMenu'),
@@ -540,8 +596,17 @@
 
     function headers() { return { Authorization: `Bearer ${state.token}` }; }
 
+    function ensureScannerDeviceId() {
+      if (!state.scannerDeviceId) {
+        const randomId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        state.scannerDeviceId = `JIX-SCAN-${randomId}`;
+        localStorage.setItem('jixelsScannerDeviceId', state.scannerDeviceId);
+      }
+      return state.scannerDeviceId;
+    }
+
     function qrUrl(data) {
-      return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(data)}`;
+      return `/api/qr?size=240&margin=0&data=${encodeURIComponent(data)}`;
     }
 
     function verificationUrl(token) {
@@ -550,6 +615,27 @@
 
     function claimUrl(token) {
       return `${window.location.origin}/?claim=${encodeURIComponent(token)}`;
+    }
+
+    function currentLocation() {
+      if (!navigator.geolocation) return Promise.resolve({});
+      const capture = (options) => new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            locationAccuracy: position.coords.accuracy
+          }),
+          () => resolve({}),
+          options
+        );
+      });
+      return Promise.all([
+        capture({ enableHighAccuracy: false, timeout: 3500, maximumAge: 15000 }),
+        capture({ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
+      ]).then((locations) => locations
+        .filter((location) => location.latitude !== undefined)
+        .sort((a, b) => Number(a.locationAccuracy || Infinity) - Number(b.locationAccuracy || Infinity))[0] || {});
     }
 
     function whatsappPhone(phone) {
@@ -580,6 +666,39 @@
       render();
     }
 
+    async function loadAttendance() {
+      const response = await fetch('/api/attendance', { headers: headers() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load sign in/out records.');
+      state.attendance = data.attendance || [];
+      renderAttendance();
+    }
+
+    async function loadScannerDevices() {
+      ensureScannerDeviceId();
+      const response = await fetch('/api/scanner-devices', { headers: headers() });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load scanner phones.');
+      state.scannerDevices = data.devices || [];
+      renderScannerDevices();
+    }
+
+    async function registerScannerDevice() {
+      const response = await fetch('/api/scanner-devices', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: ensureScannerDeviceId(),
+          deviceName: els.scannerDeviceName.value.trim() || 'Scanner phone'
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to register this phone.');
+      state.scannerDevices = data.devices || [];
+      renderScannerDevices();
+      els.attendanceNotice.textContent = 'This phone is registered for scanning.';
+    }
+
     function startAutoRefresh() {
       if (state.refreshTimer) clearInterval(state.refreshTimer);
       state.refreshTimer = setInterval(() => {
@@ -603,12 +722,57 @@
       const counts = {};
       state.records.forEach((r) => { counts[r.status || 'Pending'] = (counts[r.status || 'Pending'] || 0) + 1; });
       const statuses = ['Pending', 'Approved', 'Inactive', 'Suspended', 'Lost', 'Rejected'];
+      const signedIn = state.attendance.filter((record) => record.status === 'Signed In').length;
       els.summary.innerHTML = statuses
         .map((status) => `<span>${status}: ${counts[status] || 0}</span>`)
         .join('') || '<span>No records</span>';
       els.dashboardSummary.innerHTML = statuses
         .map((status) => `<div class="dash-card"><strong>${counts[status] || 0}</strong>${status}</div>`)
-        .join('');
+        .join('') + `<div class="dash-card"><strong>${signedIn}</strong>Signed In Now</div>`;
+    }
+
+    function formatDateTime(value) {
+      return value ? new Date(value).toLocaleString() : '';
+    }
+
+    function gpsText(record) {
+      const lat = record.signOutLatitude ?? record.signInLatitude;
+      const lon = record.signOutLongitude ?? record.signInLongitude;
+      if (lat === null || lat === undefined || lon === null || lon === undefined) return '';
+      const accuracy = record.locationAccuracy ? ` (${Math.round(Number(record.locationAccuracy))}m)` : '';
+      return `${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}${accuracy}`;
+    }
+
+    function renderAttendance() {
+      renderSummary();
+      els.attendanceRows.innerHTML = state.attendance.length ? state.attendance.map((record) => `
+        <tr>
+          <td>${record.workerName || ''}</td>
+          <td>${record.workerId || record.cardId || ''}</td>
+          <td>${record.branch || ''}</td>
+          <td>${record.position || ''}</td>
+          <td>${formatDateTime(record.signedInAt)}</td>
+          <td>${formatDateTime(record.signedOutAt)}</td>
+          <td>${record.status || ''}</td>
+          <td>${gpsText(record)}</td>
+        </tr>`).join('') : '<tr><td colspan="8">No sign in/out records loaded.</td></tr>';
+    }
+
+    function activeScannerDevice() {
+      return state.scannerDevices.find((device) => device.deviceId === state.scannerDeviceId && (device.status || 'Active') === 'Active');
+    }
+
+    function renderScannerDevices() {
+      const active = activeScannerDevice();
+      els.scannerDeviceStatus.textContent = active ? `${active.deviceName || 'This phone'} registered` : 'Not registered';
+      els.scannerDeviceRows.innerHTML = state.scannerDevices.length ? state.scannerDevices.map((device) => `
+        <tr>
+          <td>${device.deviceName || ''}</td>
+          <td><code>${device.deviceId || ''}</code></td>
+          <td>${device.status || 'Active'}</td>
+          <td>${device.registeredBy || ''}</td>
+          <td><button type="button" data-device-id="${device.id}" data-device-status="${device.status === 'Disabled' ? 'Active' : 'Disabled'}">${device.status === 'Disabled' ? 'Activate' : 'Disable'}</button></td>
+        </tr>`).join('') : '<tr><td colspan="5">No scanner phones registered yet.</td></tr>';
     }
 
     function showTab(tab) {
@@ -680,8 +844,9 @@
         els.cardPhoto.classList.add('hidden');
         els.cardPhotoPlaceholder.classList.remove('hidden');
       }
-      els.cardQr.src = qrUrl(verificationUrl(card.verificationToken || ''));
-      const link = claimUrl(card.verificationToken || '');
+      const qrToken = card.qrToken || card.verificationToken || '';
+      els.cardQr.src = qrUrl(verificationUrl(qrToken));
+      const link = claimUrl(qrToken);
       const message = `Hello ${card.name || 'there'}, your Jixels ID card has been approved. Open this link to view/download your ID card: ${link}`;
       els.notifyText.textContent = `Notify ${card.name || 'worker'} that the ID card is ready.`;
       els.workerClaimLink.href = link;
@@ -804,7 +969,13 @@
     }
 
     async function backupJson() {
-      const response = await fetch('/api/backup', { headers: headers() });
+      const currentPassword = prompt('Enter current admin password to create a backup:');
+      if (!currentPassword) return;
+      const response = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword })
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to create backup.');
       const link = document.createElement('a');
@@ -816,10 +987,12 @@
 
     async function restoreJson(file) {
       const text = await file.text();
+      const currentPassword = prompt('Enter current admin password to restore this backup:');
+      if (!currentPassword) return;
       const response = await fetch('/api/restore', {
         method: 'POST',
         headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: text
+        body: JSON.stringify({ currentPassword, backup: JSON.parse(text) })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to restore backup.');
@@ -831,6 +1004,29 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load audit.');
       els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
+    }
+
+    async function recordAttendanceScan() {
+      if (!activeScannerDevice()) {
+        throw new Error('Register this phone before scanning workers.');
+      }
+      els.attendanceNotice.textContent = 'Capturing GPS...';
+      const location = await currentLocation();
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: els.scanToken.value.trim(),
+          action: els.scanAction.value,
+          deviceId: ensureScannerDeviceId(),
+          ...location
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to record sign in/out.');
+      els.attendanceNotice.textContent = data.message || 'Sign in/out recorded.';
+      els.scanToken.value = '';
+      await loadAttendance();
     }
 
     async function changePassword() {
@@ -894,6 +1090,9 @@
       if (button.dataset.tab === 'audit') {
         showAudit().catch((error) => alert(friendlyError(error)));
       }
+      if (button.dataset.tab === 'attendance') {
+        Promise.all([loadAttendance(), loadScannerDevices()]).catch((error) => alert(friendlyError(error)));
+      }
     });
     els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
     els.sendResetBtn.addEventListener('click', () => sendResetCode().catch((error) => alert(friendlyError(error))));
@@ -935,7 +1134,7 @@
         }
         if (button.dataset.action === 'reject') Object.assign(card, (await setStatus(card.id, 'Rejected')).card);
         if (button.dataset.action === 'inactive') {
-          const reason = prompt('Reason for marking this worker inactive?', card.inactiveReason || 'Left company') || 'This worker is no longer active.';
+          const reason = prompt('Reason for marking this worker inactive?', card.inactiveReason || 'No longer with company') || 'This worker is no longer active.';
           Object.assign(card, (await setStatus(card.id, 'Inactive', reason)).card);
         }
         if (button.dataset.action === 'edit') startEdit(card);
@@ -974,6 +1173,37 @@
       }
     });
     els.auditBtn.addEventListener('click', () => showAudit().catch((error) => alert(friendlyError(error))));
+    els.registerScannerDeviceBtn.addEventListener('click', () => registerScannerDevice().catch((error) => alert(friendlyError(error))));
+    els.scannerDeviceRows.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-device-id]');
+      if (!button) return;
+      try {
+        const response = await fetch(`/api/scanner-devices/${encodeURIComponent(button.dataset.deviceId)}`, {
+          method: 'PATCH',
+          headers: { ...headers(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: button.dataset.deviceStatus })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to update scanner phone.');
+        state.scannerDevices = data.devices || state.scannerDevices;
+        renderScannerDevices();
+      } catch (error) {
+        alert(friendlyError(error));
+      }
+    });
+    els.installScannerAppBtn.addEventListener('click', async () => {
+      if (!state.installPrompt) return;
+      state.installPrompt.prompt();
+      await state.installPrompt.userChoice.catch(() => {});
+      state.installPrompt = null;
+      els.installScannerAppBtn.classList.add('hidden');
+    });
+    els.attendanceForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      recordAttendanceScan().catch((error) => {
+        els.attendanceNotice.textContent = friendlyError(error);
+      });
+    });
     els.printCardBtn.addEventListener('click', () => {
       if (!state.currentCard) {
         alert('Select an approved worker card first.');
@@ -995,6 +1225,19 @@
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && state.token) loadCards().catch((error) => console.warn(error.message));
     });
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      state.installPrompt = event;
+      els.installScannerAppBtn.classList.remove('hidden');
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    ensureScannerDeviceId();
+    renderScannerDevices();
 
     if (state.pin) {
       els.user.value = state.user;

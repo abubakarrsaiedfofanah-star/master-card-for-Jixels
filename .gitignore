@@ -1,10 +1,13 @@
 .env
 node_modules/
 npm-debug.log*
+server-*.log
 
 # Local demo data and secrets. Use Supabase/env vars after hosting.
 cards-db.json
 audit-log.json
+attendance-log.json
+scanner-devices.json
 admin-config.json
 admin-config*.json
 master-config.json

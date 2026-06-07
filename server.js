@@ -3,6 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 const root = __dirname;
 
@@ -25,6 +26,8 @@ loadDotEnv();
 const port = Number(process.env.PORT || 8080);
 const dbPath = path.join(root, 'cards-db.json');
 const auditPath = path.join(root, 'audit-log.json');
+const attendancePath = path.join(root, 'attendance-log.json');
+const scannerDevicesPath = path.join(root, 'scanner-devices.json');
 const adminConfigPath = path.join(root, 'admin-config.json');
 const masterConfigPath = path.join(root, 'master-config.json');
 const adminUser = process.env.ADMIN_USER || 'admin';
@@ -58,7 +61,8 @@ const types = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml'
+  '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json; charset=utf-8'
 };
 
 function sendJson(res, status, data) {
@@ -73,7 +77,7 @@ function securityHeaders(extra = {}) {
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'self' https://api.qrserver.com https://cdn.jsdelivr.net; img-src 'self' data: https://api.qrserver.com; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
     ...httpsHeader,
     ...extra
   };
@@ -120,6 +124,34 @@ function localLoadAudit() {
 
 function localSaveAudit(log) {
   fs.writeFileSync(auditPath, JSON.stringify(log, null, 2));
+}
+
+function localLoadAttendance() {
+  if (!fs.existsSync(attendancePath)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(attendancePath, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function localSaveAttendance(log) {
+  fs.writeFileSync(attendancePath, JSON.stringify(log, null, 2));
+}
+
+function localLoadScannerDevices() {
+  if (!fs.existsSync(scannerDevicesPath)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(scannerDevicesPath, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function localSaveScannerDevices(devices) {
+  fs.writeFileSync(scannerDevicesPath, JSON.stringify(devices, null, 2));
 }
 
 function fromSupabaseCard(row) {
@@ -180,6 +212,76 @@ function toSupabaseAudit(item) {
     card_id: item.cardId || item.card_id || '',
     actor: item.actor || 'system',
     created_at: item.at || item.created_at || new Date().toISOString()
+  };
+}
+
+function fromSupabaseAttendance(row) {
+  return {
+    id: row.id,
+    cardId: row.card_id,
+    workerName: row.worker_name,
+    workerId: row.worker_id,
+    branch: row.branch || '',
+    position: row.position || '',
+    attendanceDate: row.attendance_date,
+    signedInAt: row.signed_in_at,
+    signedOutAt: row.signed_out_at,
+    signInLatitude: row.sign_in_latitude,
+    signInLongitude: row.sign_in_longitude,
+    signOutLatitude: row.sign_out_latitude,
+    signOutLongitude: row.sign_out_longitude,
+    locationAccuracy: row.location_accuracy,
+    scanSource: row.scan_source || '',
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toSupabaseAttendance(item) {
+  return {
+    id: item.id,
+    card_id: item.cardId,
+    worker_name: item.workerName,
+    worker_id: item.workerId,
+    branch: item.branch || '',
+    position: item.position || '',
+    attendance_date: item.attendanceDate,
+    signed_in_at: item.signedInAt || null,
+    signed_out_at: item.signedOutAt || null,
+    sign_in_latitude: item.signInLatitude ?? null,
+    sign_in_longitude: item.signInLongitude ?? null,
+    sign_out_latitude: item.signOutLatitude ?? null,
+    sign_out_longitude: item.signOutLongitude ?? null,
+    location_accuracy: item.locationAccuracy ?? null,
+    scan_source: item.scanSource || '',
+    status: item.status || 'Signed Out',
+    created_at: item.createdAt,
+    updated_at: item.updatedAt || null
+  };
+}
+
+function fromSupabaseScannerDevice(row) {
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    deviceName: row.device_name || '',
+    registeredBy: row.registered_by || 'admin',
+    status: row.status || 'Active',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toSupabaseScannerDevice(item) {
+  return {
+    id: item.id,
+    device_id: item.deviceId,
+    device_name: item.deviceName || '',
+    registered_by: item.registeredBy || 'admin',
+    status: item.status || 'Active',
+    created_at: item.createdAt,
+    updated_at: item.updatedAt || null
   };
 }
 
@@ -249,6 +351,36 @@ async function saveAudit(log) {
   }
   await supabaseRequest('DELETE', 'audit_log', '?id=not.is.null');
   if (log.length) await supabaseRequest('POST', 'audit_log', '', log.map(toSupabaseAudit));
+}
+
+async function loadAttendance() {
+  if (!useSupabase) return localLoadAttendance();
+  const rows = await supabaseRequest('GET', 'attendance_records', '?select=*&order=created_at.desc');
+  return rows.map(fromSupabaseAttendance);
+}
+
+async function saveAttendance(log) {
+  if (!useSupabase) {
+    localSaveAttendance(log);
+    return;
+  }
+  await supabaseRequest('DELETE', 'attendance_records', '?id=not.is.null');
+  if (log.length) await supabaseRequest('POST', 'attendance_records', '', log.map(toSupabaseAttendance));
+}
+
+async function loadScannerDevices() {
+  if (!useSupabase) return localLoadScannerDevices();
+  const rows = await supabaseRequest('GET', 'scanner_devices', '?select=*&order=created_at.desc');
+  return rows.map(fromSupabaseScannerDevice);
+}
+
+async function saveScannerDevices(devices) {
+  if (!useSupabase) {
+    localSaveScannerDevices(devices);
+    return;
+  }
+  await supabaseRequest('DELETE', 'scanner_devices', '?id=not.is.null');
+  if (devices.length) await supabaseRequest('POST', 'scanner_devices', '', devices.map(toSupabaseScannerDevice));
 }
 
 function hashPassword(password, salt) {
@@ -334,7 +466,7 @@ function workerClaimUrl(req, token) {
 
 function sendWorkerApprovalEmail(req, card) {
   if (!card.email) return Promise.resolve(false);
-  const link = workerClaimUrl(req, card.verificationToken);
+  const link = workerClaimUrl(req, signQrPayload(card));
   return sendEmail(
     card.email,
     'Your Jixels ID card is ready',
@@ -413,6 +545,174 @@ function createVerificationToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function base64UrlEncode(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+function base64UrlDecode(value) {
+  return Buffer.from(value, 'base64url').toString('utf8');
+}
+
+function qrSigningSecret() {
+  return String(process.env.QR_SIGNING_SECRET || loadMasterConfig().token);
+}
+
+function signQrPayload(card) {
+  if (!card?.verificationToken) return '';
+  const payload = base64UrlEncode(JSON.stringify({
+    token: card.verificationToken,
+    id: card.id,
+    issuedAt: new Date().toISOString()
+  }));
+  const signature = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  return `v1.${payload}.${signature}`;
+}
+
+function withQrToken(card) {
+  if (!card) return card;
+  return { ...card, qrToken: signQrPayload(card) };
+}
+
+function readQrPayload(value) {
+  const token = String(value || '').trim();
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'v1') return { verificationToken: token, signed: false };
+  const [, payload, signature] = parts;
+  const expected = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+    return { verificationToken: '', signed: true, invalidSignature: true };
+  }
+  try {
+    const data = JSON.parse(base64UrlDecode(payload));
+    return { verificationToken: String(data.token || ''), cardId: String(data.id || ''), signed: true };
+  } catch {
+    return { verificationToken: '', signed: true, invalidSignature: true };
+  }
+}
+
+function extractVerificationToken(value) {
+  const text = String(value || '').trim();
+  if (!text) return { verificationToken: '', signed: false };
+  try {
+    const parsed = new URL(text);
+    const signed = parsed.searchParams.get('token') || parsed.searchParams.get('claim') || parsed.searchParams.get('q') || '';
+    return readQrPayload(signed || text);
+  } catch {
+    const tokenMatch = text.match(/[?&](?:token|claim|q)=([^&]+)/);
+    if (tokenMatch) return readQrPayload(decodeURIComponent(tokenMatch[1]));
+    return readQrPayload(text);
+  }
+}
+
+function shouldRotateVerificationToken(status) {
+  return ['Inactive', 'Suspended', 'Lost'].includes(status);
+}
+
+function confirmAdminPassword(password) {
+  const config = loadAdminConfig();
+  return hashPassword(password || '', config.salt) === config.passwordHash;
+}
+
+function scanAction(value) {
+  const action = String(value || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
+  if (['sign-in', 'signin', 'in'].includes(action)) return 'sign-in';
+  if (['sign-out', 'signout', 'out'].includes(action)) return 'sign-out';
+  return '';
+}
+
+function scanMeta(payload = {}) {
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  const locationAccuracy = Number(payload.locationAccuracy);
+  return {
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+    locationAccuracy: Number.isFinite(locationAccuracy) ? locationAccuracy : null,
+    scanSource: String(payload.scanSource || 'card-scan').trim() || 'card-scan'
+  };
+}
+
+function normalizeDeviceId(value) {
+  return String(value || '').trim().slice(0, 120);
+}
+
+async function requireRegisteredScannerDevice(payload) {
+  const deviceId = normalizeDeviceId(payload.deviceId);
+  if (!deviceId) throw new Error('This phone is not registered for scanning.');
+  const devices = await loadScannerDevices();
+  const device = devices.find((item) => item.deviceId === deviceId && (item.status || 'Active') === 'Active');
+  if (!device) throw new Error('This phone is not registered for scanning.');
+  return device;
+}
+
+function currentOpenAttendance(records, cardId) {
+  return records
+    .filter((record) => record.cardId === cardId && record.status === 'Signed In' && !record.signedOutAt)
+    .sort((a, b) => String(b.signedInAt || '').localeCompare(String(a.signedInAt || '')))[0] || null;
+}
+
+async function recordAttendanceScan(card, action, payload = {}) {
+  if ((card.status || 'Pending') !== 'Approved') {
+    throw new Error('Only approved worker cards can sign in or sign out.');
+  }
+  const attendance = await loadAttendance();
+  const now = new Date().toISOString();
+  const meta = scanMeta(payload);
+  const openRecord = currentOpenAttendance(attendance, card.id);
+
+  if (action === 'sign-in') {
+    if (openRecord) throw new Error(`${card.name} is already signed in.`);
+    const record = {
+      id: `ATT-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+      cardId: card.id,
+      workerName: card.name,
+      workerId: card.id,
+      branch: card.branch || '',
+      position: card.position || '',
+      attendanceDate: now.slice(0, 10),
+      signedInAt: now,
+      signedOutAt: '',
+      signInLatitude: meta.latitude,
+      signInLongitude: meta.longitude,
+      signOutLatitude: null,
+      signOutLongitude: null,
+      locationAccuracy: meta.locationAccuracy,
+      scanSource: meta.scanSource,
+      status: 'Signed In',
+      createdAt: now,
+      updatedAt: now
+    };
+    attendance.unshift(record);
+    await saveAttendance(attendance);
+    await appendAudit('worker-signed-in', card, 'card-scan');
+    return record;
+  }
+
+  if (action === 'sign-out') {
+    if (!openRecord) throw new Error(`${card.name} is not signed in.`);
+    openRecord.signedOutAt = now;
+    openRecord.signOutLatitude = meta.latitude;
+    openRecord.signOutLongitude = meta.longitude;
+    openRecord.locationAccuracy = meta.locationAccuracy;
+    openRecord.scanSource = meta.scanSource;
+    openRecord.status = 'Signed Out';
+    openRecord.updatedAt = now;
+    await saveAttendance(attendance);
+    await appendAudit('worker-signed-out', card, 'card-scan');
+    return openRecord;
+  }
+
+  throw new Error('Choose Sign In or Sign Out.');
+}
+
 function currentAdmin(req) {
   const auth = String(req.headers.authorization || '');
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -489,6 +789,31 @@ async function handleApi(req, res, url) {
     masterUrl.searchParams.set('master', loadMasterConfig().token);
     masterUrl.hash = 'apply';
     sendJson(res, 200, { url: masterUrl.href });
+    return true;
+  }
+
+  if (url.pathname === '/api/qr' && req.method === 'GET') {
+    try {
+      const data = String(url.searchParams.get('data') || '');
+      if (!data) {
+        sendJson(res, 400, { error: 'QR data is required.' });
+        return true;
+      }
+      if (data.length > 2048) {
+        sendJson(res, 400, { error: 'QR data is too long.' });
+        return true;
+      }
+      const svg = await QRCode.toString(data, {
+        type: 'svg',
+        margin: Number(url.searchParams.get('margin') || 0),
+        width: Number(url.searchParams.get('size') || 240),
+        errorCorrectionLevel: 'M'
+      });
+      res.writeHead(200, securityHeaders({ 'Content-Type': 'image/svg+xml; charset=utf-8' }));
+      res.end(svg);
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to generate QR.' });
+    }
     return true;
   }
 
@@ -607,7 +932,7 @@ async function handleApi(req, res, url) {
       sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
-    sendJson(res, 200, { cards: await loadCards() });
+    sendJson(res, 200, { cards: (await loadCards()).map(withQrToken) });
     return true;
   }
 
@@ -620,13 +945,112 @@ async function handleApi(req, res, url) {
     return true;
   }
 
-  if (url.pathname === '/api/backup' && req.method === 'GET') {
+  if (url.pathname === '/api/attendance' && req.method === 'GET') {
+    if (!isAdmin(req)) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    sendJson(res, 200, { attendance: await loadAttendance() });
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-devices' && req.method === 'GET') {
+    if (!isAdmin(req)) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    sendJson(res, 200, { devices: await loadScannerDevices() });
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-devices' && req.method === 'POST') {
+    const admin = currentAdmin(req);
+    if (!admin) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const deviceId = normalizeDeviceId(payload.deviceId);
+      if (!deviceId) {
+        sendJson(res, 400, { error: 'Device ID is required.' });
+        return true;
+      }
+      const devices = await loadScannerDevices();
+      const existing = devices.find((item) => item.deviceId === deviceId);
+      const now = new Date().toISOString();
+      if (existing) {
+        existing.deviceName = String(payload.deviceName || existing.deviceName || 'Scanner phone').trim();
+        existing.status = 'Active';
+        existing.updatedAt = now;
+      } else {
+        devices.unshift({
+          id: `SCN-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+          deviceId,
+          deviceName: String(payload.deviceName || 'Scanner phone').trim(),
+          registeredBy: admin.username,
+          status: 'Active',
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+      await saveScannerDevices(devices);
+      await appendAudit('scanner-phone-registered', { id: deviceId }, admin.username);
+      sendJson(res, 200, { devices });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to register scanner phone.' });
+    }
+    return true;
+  }
+
+  if (url.pathname.startsWith('/api/scanner-devices/') && req.method === 'PATCH') {
+    const admin = currentAdmin(req);
+    if (!admin) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    try {
+      const id = decodeURIComponent(url.pathname.replace('/api/scanner-devices/', ''));
+      const payload = JSON.parse(await readBody(req));
+      const devices = await loadScannerDevices();
+      const device = devices.find((item) => item.id === id);
+      if (!device) {
+        sendJson(res, 404, { error: 'Scanner phone not found.' });
+        return true;
+      }
+      device.status = payload.status === 'Disabled' ? 'Disabled' : 'Active';
+      device.updatedAt = new Date().toISOString();
+      await saveScannerDevices(devices);
+      await appendAudit(`scanner-phone:${device.status}`, { id: device.deviceId }, admin.username);
+      sendJson(res, 200, { device, devices });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to update scanner phone.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/backup' && req.method === 'POST') {
     const admin = currentAdmin(req);
     if (!admin || admin.role !== 'super-admin') {
       sendJson(res, 403, { error: 'Super admin required.' });
       return true;
     }
-    sendJson(res, 200, { cards: await loadCards(), audit: await loadAudit(), exportedAt: new Date().toISOString() });
+    try {
+      const payload = JSON.parse(await readBody(req));
+      if (!confirmAdminPassword(payload.currentPassword)) {
+        sendJson(res, 403, { error: 'Current admin password is required.' });
+        return true;
+      }
+      await appendAudit('backup-exported', { id: 'backup' }, admin.username);
+      sendJson(res, 200, { cards: await loadCards(), audit: await loadAudit(), attendance: await loadAttendance(), scannerDevices: await loadScannerDevices(), exportedAt: new Date().toISOString() });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Invalid backup request.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/backup' && req.method === 'GET') {
+    sendJson(res, 405, { error: 'Use POST with current admin password to create a backup.' });
     return true;
   }
 
@@ -638,12 +1062,19 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
-      if (!Array.isArray(payload.cards)) {
+      if (!confirmAdminPassword(payload.currentPassword)) {
+        sendJson(res, 403, { error: 'Current admin password is required.' });
+        return true;
+      }
+      const backup = payload.backup || {};
+      if (!Array.isArray(backup.cards)) {
         sendJson(res, 400, { error: 'Backup must include cards array.' });
         return true;
       }
-      await saveCards(payload.cards);
-      if (Array.isArray(payload.audit)) await saveAudit(payload.audit);
+      await saveCards(backup.cards);
+      if (Array.isArray(backup.audit)) await saveAudit(backup.audit);
+      if (Array.isArray(backup.attendance)) await saveAttendance(backup.attendance);
+      if (Array.isArray(backup.scannerDevices)) await saveScannerDevices(backup.scannerDevices);
       await appendAudit('restored-backup', { id: 'backup' }, admin.username);
       sendJson(res, 200, { ok: true });
     } catch (error) {
@@ -653,8 +1084,10 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/verify' && req.method === 'GET') {
-    const token = url.searchParams.get('token');
-    const card = (await loadCards()).find((item) => item.verificationToken === token);
+    const token = extractVerificationToken(url.searchParams.get('token'));
+    const card = token.verificationToken
+      ? (await loadCards()).find((item) => item.verificationToken === token.verificationToken && (!token.cardId || item.id === token.cardId))
+      : null;
     if (!card) {
       sendJson(res, 200, {
         card: {
@@ -673,7 +1106,42 @@ async function handleApi(req, res, url) {
       });
       return true;
     }
+    await appendAudit(token.signed ? 'verified:signed-qr' : 'verified:legacy-token', card, 'public-scan');
     sendJson(res, 200, { card: publicCard(card) });
+    return true;
+  }
+
+  if (url.pathname === '/api/scan' && req.method === 'POST') {
+    const admin = currentAdmin(req);
+    if (!admin) {
+      sendJson(res, 401, { error: loginRequiredMessage });
+      return true;
+    }
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const action = scanAction(payload.action);
+      if (!action) {
+        sendJson(res, 400, { error: 'Choose Sign In or Sign Out.' });
+        return true;
+      }
+      const scannerDevice = await requireRegisteredScannerDevice(payload);
+      const token = extractVerificationToken(payload.token);
+      const card = token.verificationToken
+        ? (await loadCards()).find((item) => item.verificationToken === token.verificationToken && (!token.cardId || item.id === token.cardId))
+        : null;
+      if (!card) {
+        sendJson(res, 404, { error: 'Card token was not found.' });
+        return true;
+      }
+      const attendance = await recordAttendanceScan(card, action, { ...payload, scanSource: scannerDevice.deviceName || 'registered-phone' });
+      sendJson(res, 200, {
+        attendance,
+        card: publicCard(card),
+        message: action === 'sign-in' ? `${card.name} signed in.` : `${card.name} signed out.`
+      });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to record scan.' });
+    }
     return true;
   }
 
@@ -736,7 +1204,7 @@ async function handleApi(req, res, url) {
       cards.push(card);
       await saveCards(cards);
       await appendAudit('created', card, isAdmin(req) ? 'admin' : 'public');
-      sendJson(res, 201, { card });
+      sendJson(res, 201, { card: withQrToken(card) });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Invalid request.' });
     }
@@ -758,6 +1226,7 @@ async function handleApi(req, res, url) {
         return true;
       }
 
+      const previousStatus = cards[index].status || 'Pending';
       cards[index] = {
         ...cards[index],
         name: String(payload.name || '').trim(),
@@ -772,6 +1241,9 @@ async function handleApi(req, res, url) {
         photo: payload.photo ? String(payload.photo) : cards[index].photo,
         updatedAt: new Date().toISOString()
       };
+      if (cards[index].status !== previousStatus && shouldRotateVerificationToken(cards[index].status)) {
+        cards[index].verificationToken = createVerificationToken();
+      }
 
       if (!cards[index].name || !cards[index].location || !cards[index].branch || !cards[index].nationalId || !cards[index].phone || !cards[index].email || !cards[index].position || !cards[index].photo) {
         sendJson(res, 400, { error: 'Name, location, branch, National ID, phone, email, position, and picture are required.' });
@@ -797,7 +1269,7 @@ async function handleApi(req, res, url) {
 
       await saveCards(cards);
       await appendAudit('edited', cards[index], 'admin');
-      sendJson(res, 200, { card: cards[index] });
+      sendJson(res, 200, { card: withQrToken(cards[index]) });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Invalid request.' });
     }
@@ -824,8 +1296,12 @@ async function handleApi(req, res, url) {
         return true;
       }
       const wasApproved = (card.status || 'Pending') === 'Approved';
+      const previousStatus = card.status || 'Pending';
       card.status = status;
       card.inactiveReason = status === 'Inactive' ? String(payload.inactiveReason || payload.reason || card.inactiveReason || 'This worker is no longer active.').trim() : '';
+      if (status !== previousStatus && shouldRotateVerificationToken(status)) {
+        card.verificationToken = createVerificationToken();
+      }
       if (status === 'Approved') {
         card.verificationToken = card.verificationToken || createVerificationToken();
         card.approvedAt = new Date().toISOString();
@@ -845,7 +1321,7 @@ async function handleApi(req, res, url) {
         }
       }
       await appendAudit(`status:${status}`, card, req.headers['x-admin-user'] || 'admin');
-      sendJson(res, 200, { card, emailSent, emailError });
+      sendJson(res, 200, { card: withQrToken(card), emailSent, emailError });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Invalid request.' });
     }
@@ -866,10 +1342,11 @@ async function handleApi(req, res, url) {
     }
     card.status = 'Inactive';
     card.inactiveReason = 'Marked inactive instead of deleted.';
+    card.verificationToken = createVerificationToken();
     card.updatedAt = new Date().toISOString();
     await saveCards(cards);
     await appendAudit('inactive-via-delete-request', card, currentAdmin(req)?.username || 'admin');
-    sendJson(res, 200, { ok: true, card, message: 'Card marked inactive instead of deleted.' });
+    sendJson(res, 200, { ok: true, card: withQrToken(card), message: 'Card marked inactive instead of deleted.' });
     return true;
   }
 
@@ -901,14 +1378,30 @@ const app = async (req, res) => {
   });
 };
 
-const server = process.env.HTTPS_KEY && process.env.HTTPS_CERT
-  ? https.createServer({
-      key: fs.readFileSync(process.env.HTTPS_KEY),
-      cert: fs.readFileSync(process.env.HTTPS_CERT)
-    }, app)
-  : http.createServer(app);
+function createServer() {
+  return process.env.HTTPS_KEY && process.env.HTTPS_CERT
+    ? https.createServer({
+        key: fs.readFileSync(process.env.HTTPS_KEY),
+        cert: fs.readFileSync(process.env.HTTPS_CERT)
+      }, app)
+    : http.createServer(app);
+}
 
-server.listen(port, '0.0.0.0', () => {
-  const protocol = process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http';
-  console.log(`Jixels ID app running at ${protocol}://localhost:${port}`);
-});
+if (require.main === module) {
+  const server = createServer();
+  server.listen(port, '0.0.0.0', () => {
+    const protocol = process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http';
+    console.log(`Jixels ID app running at ${protocol}://localhost:${port}`);
+  });
+}
+
+module.exports = {
+  app,
+  createServer,
+  extractVerificationToken,
+  requireRegisteredScannerDevice,
+  scanAction,
+  signQrPayload,
+  readQrPayload,
+  shouldRotateVerificationToken
+};
