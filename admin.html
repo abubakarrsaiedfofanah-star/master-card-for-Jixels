@@ -722,6 +722,12 @@
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
       els.attendanceNotice.textContent = 'This phone is registered. Open or install the Scanner App for daily sign in/out scanning.';
+      if (state.installPrompt) {
+        state.installPrompt.prompt();
+        await state.installPrompt.userChoice.catch(() => {});
+        state.installPrompt = null;
+        els.installScannerAppBtn.classList.add('hidden');
+      }
     }
 
     function startAutoRefresh() {
@@ -1230,7 +1236,15 @@
     });
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      navigator.serviceWorker.register('/sw.js').then((registration) => {
+        registration.update().catch(() => {});
+      }).catch(() => {});
     }
 
     ensureScannerDeviceId();

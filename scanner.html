@@ -296,7 +296,17 @@
       state.installPrompt = null;
       els.installBtn.classList.add('hidden');
     });
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      navigator.serviceWorker.register('/sw.js').then((registration) => {
+        registration.update().catch(() => {});
+      }).catch(() => {});
+    }
     updateDeviceNotice();
   </script>
 </body>
