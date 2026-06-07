@@ -138,6 +138,11 @@
     th { font-size: 12px; color: #617086; }
     .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .summary span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; background: #f8fafc; }
+    .attendance-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .attendance-summary .dash-card { padding: 12px; }
+    .active-now-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .active-now-list span { border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #14532d; padding: 6px 10px; font-size: 12px; font-weight: 800; }
+    .alert-text { color: #b42318; font-weight: 900; }
     .calendar-panel {
       align-items: end;
       background: #f8fafc;
@@ -336,6 +341,7 @@
       <section class="panel tab-panel hidden" data-panel="attendance">
         <h2>Attendance</h2>
         <div class="controls">
+          <input id="attendanceSearch" placeholder="Search worker, ID, branch, scanner">
           <button type="button" data-attendance-filter="today">Today</button>
           <button type="button" class="secondary" data-attendance-filter="yesterday">Yesterday</button>
           <button type="button" class="secondary" data-attendance-filter="week">This Week</button>
@@ -349,12 +355,17 @@
           <label>To date<input id="attendanceEndDate" type="date"></label>
           <button type="button" id="applyAttendanceRangeBtn">Apply Range</button>
         </div>
+        <div class="attendance-summary" id="attendanceSummary"></div>
+        <div class="notice-box">
+          <strong>Active Now</strong>
+          <div class="active-now-list" id="activeNowList"></div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Date</th><th>Time</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>Scanned By</th><th>GPS</th></tr>
+              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Date</th><th>Time</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>Alert</th><th>Scanned By</th><th>GPS</th></tr>
             </thead>
-            <tbody id="attendanceRows"><tr><td colspan="11">No sign in/out records loaded.</td></tr></tbody>
+            <tbody id="attendanceRows"><tr><td colspan="12">No sign in/out records loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -384,9 +395,9 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Owner</th><th>Scanner Phone No.</th><th>Device/Place</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
+              <tr><th>Owner</th><th>Scanner Phone No.</th><th>Device/Place</th><th>Last Scan</th><th>Today Scans</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
             </thead>
-            <tbody id="scannerDeviceRows"><tr><td colspan="6">No scanner phones loaded.</td></tr></tbody>
+            <tbody id="scannerDeviceRows"><tr><td colspan="8">No scanner phones loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -532,6 +543,7 @@
       records: [],
       attendance: [],
       attendanceFilter: 'today',
+      attendanceSearch: '',
       attendanceStartDate: '',
       attendanceEndDate: '',
       scannerDevices: [],
@@ -599,6 +611,9 @@
       auditBox: document.getElementById('auditBox'),
       attendanceNotice: document.getElementById('attendanceNotice'),
       attendanceRows: document.getElementById('attendanceRows'),
+      attendanceSearch: document.getElementById('attendanceSearch'),
+      attendanceSummary: document.getElementById('attendanceSummary'),
+      activeNowList: document.getElementById('activeNowList'),
       calendarFilterBtn: document.getElementById('calendarFilterBtn'),
       attendanceCalendarPanel: document.getElementById('attendanceCalendarPanel'),
       attendanceStartDate: document.getElementById('attendanceStartDate'),
@@ -873,7 +888,51 @@
     }
 
     function filteredAttendance() {
-      return state.attendance.filter(attendanceInFilter);
+      const q = state.attendanceSearch.trim().toLowerCase();
+      return state.attendance.filter((record) => {
+        const matchesDate = attendanceInFilter(record);
+        const matchesSearch = !q || [
+          record.workerName,
+          record.workerId,
+          record.cardId,
+          record.branch,
+          record.position,
+          record.status,
+          record.scanSource
+        ].some((value) => String(value || '').toLowerCase().includes(q));
+        return matchesDate && matchesSearch;
+      });
+    }
+
+    function isMissingSignOut(record) {
+      if (record.status !== 'Signed In' || record.signedOutAt) return false;
+      const signedIn = record.signedInAt ? startOfDay(new Date(record.signedInAt)) : null;
+      const today = startOfDay(new Date());
+      return Boolean(signedIn && signedIn < today);
+    }
+
+    function attendanceAlert(record) {
+      return isMissingSignOut(record) ? 'No sign-out' : '';
+    }
+
+    function activeNowRecords() {
+      return state.attendance.filter((record) => record.status === 'Signed In' && !record.signedOutAt);
+    }
+
+    function renderAttendanceSummary(records) {
+      const signedIn = records.filter((record) => record.status === 'Signed In').length;
+      const signedOut = records.filter((record) => record.status === 'Signed Out').length;
+      const missing = records.filter(isMissingSignOut).length;
+      els.attendanceSummary.innerHTML = `
+        <div class="dash-card"><strong>${records.length}</strong>Records</div>
+        <div class="dash-card"><strong>${signedIn}</strong>Signed In</div>
+        <div class="dash-card"><strong>${signedOut}</strong>Signed Out</div>
+        <div class="dash-card"><strong>${missing}</strong>No Sign-Out</div>
+      `;
+      const active = activeNowRecords();
+      els.activeNowList.innerHTML = active.length
+        ? active.map((record) => `<span>${record.workerName || record.cardId || 'Worker'} - ${formatTime(record.signedInAt)}</span>`).join('')
+        : '<span>No active workers now</span>';
     }
 
     function gpsText(record) {
@@ -887,6 +946,7 @@
     function renderAttendance() {
       renderSummary();
       const records = filteredAttendance();
+      renderAttendanceSummary(records);
       els.attendanceRows.innerHTML = records.length ? records.map((record) => `
         <tr>
           <td>${record.workerName || ''}</td>
@@ -898,9 +958,24 @@
           <td>${formatDateTime(record.signedInAt)}</td>
           <td>${formatDateTime(record.signedOutAt)}</td>
           <td>${record.status || ''}</td>
+          <td class="alert-text">${attendanceAlert(record)}</td>
           <td>${record.scanSource || ''}</td>
           <td>${gpsText(record)}</td>
-        </tr>`).join('') : '<tr><td colspan="11">No sign in/out records loaded.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="12">No sign in/out records loaded.</td></tr>';
+    }
+
+    function scannerLabels(device) {
+      return [device.deviceOwner, device.deviceName, device.devicePhone].filter(Boolean).map((value) => String(value).toLowerCase());
+    }
+
+    function scannerActivity(device) {
+      const labels = scannerLabels(device);
+      const records = state.attendance.filter((record) => labels.includes(String(record.scanSource || '').toLowerCase()));
+      const scanTimes = records.flatMap((record) => [record.signedInAt, record.signedOutAt].filter(Boolean));
+      const latest = scanTimes.sort().at(-1) || '';
+      const today = startOfDay(new Date());
+      const todayScans = scanTimes.filter((scanTime) => startOfDay(new Date(scanTime)).getTime() === today.getTime()).length;
+      return { latest, todayScans };
     }
 
     function activeScannerDevice() {
@@ -915,13 +990,15 @@
           <td>${device.deviceOwner || ''}</td>
           <td>${device.devicePhone || ''}</td>
           <td>${device.deviceName || ''}</td>
+          <td>${formatDateTime(scannerActivity(device).latest)}</td>
+          <td>${scannerActivity(device).todayScans}</td>
           <td>${device.status || 'Active'}</td>
           <td>${device.registeredBy || ''}</td>
           <td>
             <button type="button" data-action="resend" data-device-id="${device.id}">Resend Link</button>
             <button type="button" data-action="status" data-device-id="${device.id}" data-device-status="${device.status === 'Disabled' ? 'Active' : 'Disabled'}">${device.status === 'Disabled' ? 'Activate' : 'Disable'}</button>
           </td>
-        </tr>`).join('') : '<tr><td colspan="6">No scanner phones registered yet.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="8">No scanner phones registered yet.</td></tr>';
     }
 
     function showTab(tab) {
@@ -1123,7 +1200,7 @@
     }
 
     function exportAttendanceCsv() {
-      const rows = [['Worker', 'ID', 'Branch', 'Position', 'Date', 'Time', 'Signed In', 'Signed Out', 'Status', 'Scanned By', 'GPS']];
+      const rows = [['Worker', 'ID', 'Branch', 'Position', 'Date', 'Time', 'Signed In', 'Signed Out', 'Status', 'Alert', 'Scanned By', 'GPS']];
       filteredAttendance().forEach((r) => rows.push([
         r.workerName || '',
         r.workerId || r.cardId || '',
@@ -1134,6 +1211,7 @@
         formatDateTime(r.signedInAt),
         formatDateTime(r.signedOutAt),
         r.status || '',
+        attendanceAlert(r),
         r.scanSource || '',
         gpsText(r)
       ]));
@@ -1248,7 +1326,11 @@
         loadAttendance().catch((error) => alert(friendlyError(error)));
       }
       if (button.dataset.tab === 'scanner') {
-        loadScannerDevices().catch((error) => {
+        Promise.allSettled([loadScannerDevices(), loadAttendance()]).then((results) => {
+          const failed = results.find((result) => result.status === 'rejected');
+          if (failed) throw failed.reason;
+          renderScannerDevices();
+        }).catch((error) => {
           els.attendanceNotice.textContent = friendlyError(error);
         });
       }
@@ -1325,6 +1407,10 @@
     els.allBtn.addEventListener('click', () => { els.search.value = ''; render(); });
     els.exportBtn.addEventListener('click', exportCsv);
     els.exportAttendanceBtn.addEventListener('click', exportAttendanceCsv);
+    els.attendanceSearch.addEventListener('input', () => {
+      state.attendanceSearch = els.attendanceSearch.value;
+      renderAttendance();
+    });
     els.calendarFilterBtn.addEventListener('click', () => {
       const todayValue = dateInputValue(new Date());
       els.attendanceStartDate.value = state.attendanceStartDate || todayValue;
