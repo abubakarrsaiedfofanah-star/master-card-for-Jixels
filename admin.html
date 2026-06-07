@@ -138,6 +138,17 @@
     th { font-size: 12px; color: #617086; }
     .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .summary span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; background: #f8fafc; }
+    .calendar-panel {
+      align-items: end;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(150px, 220px)) auto;
+      padding: 12px;
+    }
+    .calendar-panel label { margin-bottom: 0; }
     .thumb { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: center top; background: #eef2f6; border: 1px solid var(--line); cursor: zoom-in; }
     .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .72); display: grid; place-items: center; padding: 20px; z-index: 20; }
     .modal img { max-width: min(720px, 96vw); max-height: 86vh; background: #fff; border-radius: 8px; }
@@ -330,7 +341,13 @@
           <button type="button" class="secondary" data-attendance-filter="week">This Week</button>
           <button type="button" class="secondary" data-attendance-filter="month">This Month</button>
           <button type="button" class="secondary" data-attendance-filter="all">All</button>
+          <button type="button" class="secondary" id="calendarFilterBtn">Calendar</button>
           <button type="button" class="secondary" id="exportAttendanceBtn">Export Attendance CSV</button>
+        </div>
+        <div class="calendar-panel hidden" id="attendanceCalendarPanel">
+          <label>From date<input id="attendanceStartDate" type="date"></label>
+          <label>To date<input id="attendanceEndDate" type="date"></label>
+          <button type="button" id="applyAttendanceRangeBtn">Apply Range</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -515,6 +532,8 @@
       records: [],
       attendance: [],
       attendanceFilter: 'today',
+      attendanceStartDate: '',
+      attendanceEndDate: '',
       scannerDevices: [],
       scannerDeviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
       scannerSession: localStorage.getItem('jixelsScannerSession') || '',
@@ -580,6 +599,11 @@
       auditBox: document.getElementById('auditBox'),
       attendanceNotice: document.getElementById('attendanceNotice'),
       attendanceRows: document.getElementById('attendanceRows'),
+      calendarFilterBtn: document.getElementById('calendarFilterBtn'),
+      attendanceCalendarPanel: document.getElementById('attendanceCalendarPanel'),
+      attendanceStartDate: document.getElementById('attendanceStartDate'),
+      attendanceEndDate: document.getElementById('attendanceEndDate'),
+      applyAttendanceRangeBtn: document.getElementById('applyAttendanceRangeBtn'),
       exportAttendanceBtn: document.getElementById('exportAttendanceBtn'),
       scannerDeviceStatus: document.getElementById('scannerDeviceStatus'),
       scannerOwner: document.getElementById('scannerOwner'),
@@ -814,12 +838,23 @@
       return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 
+    function dateInputValue(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
     function attendanceInFilter(record) {
       if (state.attendanceFilter === 'all') return true;
       const scanTime = latestScanTime(record);
       if (!scanTime) return false;
       const scanDate = startOfDay(new Date(scanTime));
       const today = startOfDay(new Date());
+      if (state.attendanceFilter === 'custom') {
+        const start = state.attendanceStartDate ? startOfDay(new Date(`${state.attendanceStartDate}T00:00:00`)) : null;
+        const end = state.attendanceEndDate ? startOfDay(new Date(`${state.attendanceEndDate}T00:00:00`)) : null;
+        if (start && scanDate < start) return false;
+        if (end && scanDate > end) return false;
+        return Boolean(start || end);
+      }
       if (state.attendanceFilter === 'today') return scanDate.getTime() === today.getTime();
       if (state.attendanceFilter === 'yesterday') {
         const yesterday = new Date(today);
@@ -1104,6 +1139,8 @@
       ]));
       const period = state.attendanceFilter === 'month'
         ? new Date().toISOString().slice(0, 7)
+        : state.attendanceFilter === 'custom'
+          ? `${state.attendanceStartDate || 'start'}-to-${state.attendanceEndDate || 'end'}`
         : state.attendanceFilter;
       downloadCsv(`jixels-attendance-${period}.csv`, rows);
     }
@@ -1288,9 +1325,24 @@
     els.allBtn.addEventListener('click', () => { els.search.value = ''; render(); });
     els.exportBtn.addEventListener('click', exportCsv);
     els.exportAttendanceBtn.addEventListener('click', exportAttendanceCsv);
+    els.calendarFilterBtn.addEventListener('click', () => {
+      const todayValue = dateInputValue(new Date());
+      els.attendanceStartDate.value = state.attendanceStartDate || todayValue;
+      els.attendanceEndDate.value = state.attendanceEndDate || todayValue;
+      els.attendanceCalendarPanel.classList.toggle('hidden');
+    });
+    els.applyAttendanceRangeBtn.addEventListener('click', () => {
+      state.attendanceStartDate = els.attendanceStartDate.value;
+      state.attendanceEndDate = els.attendanceEndDate.value;
+      state.attendanceFilter = 'custom';
+      document.querySelectorAll('[data-attendance-filter]').forEach((item) => item.classList.add('secondary'));
+      els.calendarFilterBtn.classList.remove('secondary');
+      renderAttendance();
+    });
     document.querySelectorAll('[data-attendance-filter]').forEach((button) => {
       button.addEventListener('click', () => {
         state.attendanceFilter = button.dataset.attendanceFilter;
+        els.calendarFilterBtn.classList.add('secondary');
         document.querySelectorAll('[data-attendance-filter]').forEach((item) => {
           item.classList.toggle('secondary', item !== button);
         });
