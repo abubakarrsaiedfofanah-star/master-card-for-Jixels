@@ -365,8 +365,8 @@
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
             <input id="scannerOwner" placeholder="Scanner owner name">
-            <input id="scannerDeviceName" placeholder="Phone label, example: Reception phone">
-            <input id="scannerPhone" inputmode="tel" placeholder="Owner phone number">
+            <input id="scannerDeviceName" placeholder="Scanner place/device, example: Reception">
+            <input id="scannerPhone" inputmode="tel" placeholder="Scanner person's phone number">
             <button type="button" id="registerScannerDeviceBtn">Create Scanner Setup Link</button>
             <button type="button" class="secondary hidden" id="installScannerAppBtn">Install Scanner App</button>
             <a class="button secondary" href="/scanner" target="_blank" rel="noopener">Open Scanner App</a>
@@ -384,7 +384,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Owner</th><th>Phone</th><th>Label</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
+              <tr><th>Owner</th><th>Scanner Phone No.</th><th>Device/Place</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
             </thead>
             <tbody id="scannerDeviceRows"><tr><td colspan="6">No scanner phones loaded.</td></tr></tbody>
           </table>
