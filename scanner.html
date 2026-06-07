@@ -40,7 +40,7 @@
         <button type="button" class="secondary hidden" id="installBtn">Install App</button>
       </div>
       <div id="setupBox" class="hidden">
-        <label>Phone name
+        <label>Scanner owner/name
           <input id="setupDeviceName" autocomplete="off" placeholder="Example: Reception phone">
         </label>
         <label>Registered phone number
@@ -227,6 +227,7 @@
           invite: inviteToken,
           deviceId: ensureScannerDeviceId(),
           deviceName: els.setupDeviceName.value.trim() || 'Scanner phone',
+          ownerName: els.setupDeviceName.value.trim(),
           phone: els.setupPhone.value.trim(),
           scannerPassword: els.setupScannerPassword.value
         })

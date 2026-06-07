@@ -269,6 +269,8 @@ function fromSupabaseScannerDevice(row) {
     passwordSalt: row.password_salt || '',
     passwordHash: row.password_hash || '',
     deviceName: row.device_name || '',
+    deviceOwner: row.device_owner || '',
+    devicePhone: row.device_phone || '',
     registeredBy: row.registered_by || 'admin',
     status: row.status || 'Active',
     createdAt: row.created_at,
@@ -284,6 +286,8 @@ function toSupabaseScannerDevice(item) {
     password_salt: item.passwordSalt || '',
     password_hash: item.passwordHash || '',
     device_name: item.deviceName || '',
+    device_owner: item.deviceOwner || '',
+    device_phone: item.devicePhone || '',
     registered_by: item.registeredBy || 'admin',
     status: item.status || 'Active',
     created_at: item.createdAt,
@@ -715,12 +719,13 @@ function normalizePhoneNumber(value) {
   return digits;
 }
 
-function signScannerInvite(deviceName, phone) {
+function signScannerInvite(deviceName, phone, ownerName) {
   const scannerPhone = normalizePhoneNumber(phone);
   if (!scannerPhone) throw new Error('Scanner phone number is required.');
   const payload = base64UrlEncode(JSON.stringify({
     scope: 'scanner-invite',
     deviceName: String(deviceName || 'Scanner phone').trim() || 'Scanner phone',
+    ownerName: String(ownerName || '').trim(),
     phone: scannerPhone,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
     nonce: crypto.randomBytes(12).toString('hex')
@@ -1097,9 +1102,9 @@ async function handleApi(req, res, url) {
         sendJson(res, 400, { error: 'Scanner phone number is required.' });
         return true;
       }
-      const token = signScannerInvite(payload.deviceName, phone);
+      const token = signScannerInvite(payload.deviceName, phone, payload.ownerName);
       const inviteUrl = scannerInviteUrl(req, token);
-      await appendAudit('scanner-invite-created', { id: `${String(payload.deviceName || 'Scanner phone')}:${phone}` }, admin.username);
+      await appendAudit('scanner-invite-created', { id: `${String(payload.ownerName || payload.deviceName || 'Scanner phone')}:${phone}` }, admin.username);
       sendJson(res, 200, { url: inviteUrl, token });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to create scanner setup link.' });
@@ -1140,8 +1145,11 @@ async function handleApi(req, res, url) {
       const passwordSalt = crypto.randomBytes(16).toString('hex');
       const passwordHash = hashPassword(scannerPassword, passwordSalt);
       const deviceName = String(payload.deviceName || invite.deviceName || 'Scanner phone').trim() || 'Scanner phone';
+      const deviceOwner = String(payload.ownerName || invite.ownerName || '').trim();
       if (existing) {
         existing.deviceName = deviceName;
+        existing.deviceOwner = deviceOwner;
+        existing.devicePhone = scannerPhone;
         existing.deviceSecret = existing.deviceSecret || crypto.randomBytes(32).toString('hex');
         existing.passwordSalt = passwordSalt;
         existing.passwordHash = passwordHash;
@@ -1155,6 +1163,8 @@ async function handleApi(req, res, url) {
           passwordSalt,
           passwordHash,
           deviceName,
+          deviceOwner,
+          devicePhone: scannerPhone,
           registeredBy: 'scanner-invite',
           status: 'Active',
           createdAt: now,
@@ -1409,7 +1419,8 @@ async function handleApi(req, res, url) {
         sendJson(res, 404, { error: 'Card token was not found.' });
         return true;
       }
-      const attendance = await recordAttendanceScan(card, action, { ...payload, scanSource: scannerDevice.deviceName || 'registered-phone' });
+      const scannerLabel = scannerDevice.deviceOwner || scannerDevice.deviceName || scannerDevice.devicePhone || 'registered-phone';
+      const attendance = await recordAttendanceScan(card, action, { ...payload, scanSource: scannerLabel });
       sendJson(res, 200, {
         attendance,
         card: publicCard(card),

@@ -324,12 +324,19 @@
 
       <section class="panel tab-panel hidden" data-panel="attendance">
         <h2>Attendance</h2>
+        <div class="controls">
+          <button type="button" data-attendance-filter="today">Today</button>
+          <button type="button" class="secondary" data-attendance-filter="yesterday">Yesterday</button>
+          <button type="button" class="secondary" data-attendance-filter="week">This Week</button>
+          <button type="button" class="secondary" data-attendance-filter="all">All</button>
+          <button type="button" class="secondary" id="exportAttendanceBtn">Export Attendance CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Date</th><th>Time</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
+              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Date</th><th>Time</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>Scanned By</th><th>GPS</th></tr>
             </thead>
-            <tbody id="attendanceRows"><tr><td colspan="10">No sign in/out records loaded.</td></tr></tbody>
+            <tbody id="attendanceRows"><tr><td colspan="11">No sign in/out records loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -339,14 +346,16 @@
         <div class="notice-box" id="scannerDeviceBox">
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
-            <input id="scannerDeviceName" placeholder="Phone name, example: Reception phone">
-            <input id="scannerPhone" inputmode="tel" placeholder="Phone number for WhatsApp">
+            <input id="scannerOwner" placeholder="Scanner owner name">
+            <input id="scannerDeviceName" placeholder="Phone label, example: Reception phone">
+            <input id="scannerPhone" inputmode="tel" placeholder="Owner phone number">
             <button type="button" id="registerScannerDeviceBtn">Create Scanner Setup Link</button>
             <button type="button" class="secondary hidden" id="installScannerAppBtn">Install Scanner App</button>
             <a class="button secondary" href="/scanner" target="_blank" rel="noopener">Open Scanner App</a>
           </div>
           <div class="hidden" id="scannerInviteBox">
             <a id="scannerInviteLink" href="#" target="_blank" rel="noopener">Scanner setup link</a>
+            <div>Setup links expire after 7 days and can be used only once.</div>
             <div class="controls">
               <a class="button" id="whatsappScannerInviteLink" href="#" target="_blank" rel="noopener">Send WhatsApp</a>
               <button type="button" class="secondary" id="copyScannerInviteBtn">Copy Link</button>
@@ -357,9 +366,9 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Registered Phone</th><th>Device ID</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
+              <tr><th>Owner</th><th>Phone</th><th>Label</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
             </thead>
-            <tbody id="scannerDeviceRows"><tr><td colspan="5">No scanner phones loaded.</td></tr></tbody>
+            <tbody id="scannerDeviceRows"><tr><td colspan="6">No scanner phones loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -504,6 +513,7 @@
       token: sessionStorage.getItem('jixelsAdminToken') || '',
       records: [],
       attendance: [],
+      attendanceFilter: 'today',
       scannerDevices: [],
       scannerDeviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
       scannerSession: localStorage.getItem('jixelsScannerSession') || '',
@@ -569,7 +579,9 @@
       auditBox: document.getElementById('auditBox'),
       attendanceNotice: document.getElementById('attendanceNotice'),
       attendanceRows: document.getElementById('attendanceRows'),
+      exportAttendanceBtn: document.getElementById('exportAttendanceBtn'),
       scannerDeviceStatus: document.getElementById('scannerDeviceStatus'),
+      scannerOwner: document.getElementById('scannerOwner'),
       scannerDeviceName: document.getElementById('scannerDeviceName'),
       scannerPhone: document.getElementById('scannerPhone'),
       registerScannerDeviceBtn: document.getElementById('registerScannerDeviceBtn'),
@@ -721,9 +733,11 @@
       renderScannerDevices();
     }
 
-    async function createScannerInvite() {
-      const deviceName = els.scannerDeviceName.value.trim() || 'Scanner phone';
-      const phone = whatsappPhone(els.scannerPhone.value);
+    async function createScannerInvite(source = {}) {
+      const ownerName = String(source.ownerName ?? els.scannerOwner.value).trim();
+      const deviceName = String(source.deviceName ?? els.scannerDeviceName.value).trim() || 'Scanner phone';
+      const phoneInput = source.phone ?? els.scannerPhone.value;
+      const phone = whatsappPhone(phoneInput);
       if (!phone) {
         els.attendanceNotice.textContent = 'Enter the phone number that should receive this scanner setup link.';
         return;
@@ -731,7 +745,7 @@
       const data = await adminRequest('/api/scanner-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceName, phone })
+        body: JSON.stringify({ ownerName, deviceName, phone })
       }, 'Unable to create scanner setup link.');
       const message = `Open this Jixels scanner setup link on the phone that will scan ID cards: ${data.url}`;
       els.scannerInviteLink.href = data.url;
@@ -795,6 +809,34 @@
       return value ? new Date(value).toLocaleTimeString() : '';
     }
 
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function attendanceInFilter(record) {
+      if (state.attendanceFilter === 'all') return true;
+      const scanTime = latestScanTime(record);
+      if (!scanTime) return false;
+      const scanDate = startOfDay(new Date(scanTime));
+      const today = startOfDay(new Date());
+      if (state.attendanceFilter === 'today') return scanDate.getTime() === today.getTime();
+      if (state.attendanceFilter === 'yesterday') {
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        return scanDate.getTime() === yesterday.getTime();
+      }
+      if (state.attendanceFilter === 'week') {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - 6);
+        return scanDate >= weekStart && scanDate <= today;
+      }
+      return true;
+    }
+
+    function filteredAttendance() {
+      return state.attendance.filter(attendanceInFilter);
+    }
+
     function gpsText(record) {
       const lat = record.signOutLatitude ?? record.signInLatitude;
       const lon = record.signOutLongitude ?? record.signInLongitude;
@@ -805,7 +847,8 @@
 
     function renderAttendance() {
       renderSummary();
-      els.attendanceRows.innerHTML = state.attendance.length ? state.attendance.map((record) => `
+      const records = filteredAttendance();
+      els.attendanceRows.innerHTML = records.length ? records.map((record) => `
         <tr>
           <td>${record.workerName || ''}</td>
           <td>${record.workerId || record.cardId || ''}</td>
@@ -816,8 +859,9 @@
           <td>${formatDateTime(record.signedInAt)}</td>
           <td>${formatDateTime(record.signedOutAt)}</td>
           <td>${record.status || ''}</td>
+          <td>${record.scanSource || ''}</td>
           <td>${gpsText(record)}</td>
-        </tr>`).join('') : '<tr><td colspan="10">No sign in/out records loaded.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="11">No sign in/out records loaded.</td></tr>';
     }
 
     function activeScannerDevice() {
@@ -826,15 +870,19 @@
 
     function renderScannerDevices() {
       const active = activeScannerDevice();
-      els.scannerDeviceStatus.textContent = active ? `${active.deviceName || 'This phone'} registered` : 'Not registered';
+      els.scannerDeviceStatus.textContent = active ? `${active.deviceOwner || active.deviceName || 'This phone'} registered` : 'Not registered';
       els.scannerDeviceRows.innerHTML = state.scannerDevices.length ? state.scannerDevices.map((device) => `
         <tr>
+          <td>${device.deviceOwner || ''}</td>
+          <td>${device.devicePhone || ''}</td>
           <td>${device.deviceName || ''}</td>
-          <td><code>${device.deviceId || ''}</code></td>
           <td>${device.status || 'Active'}</td>
           <td>${device.registeredBy || ''}</td>
-          <td><button type="button" data-device-id="${device.id}" data-device-status="${device.status === 'Disabled' ? 'Active' : 'Disabled'}">${device.status === 'Disabled' ? 'Activate' : 'Disable'}</button></td>
-        </tr>`).join('') : '<tr><td colspan="5">No scanner phones registered yet.</td></tr>';
+          <td>
+            <button type="button" data-action="resend" data-device-id="${device.id}">Resend Link</button>
+            <button type="button" data-action="status" data-device-id="${device.id}" data-device-status="${device.status === 'Disabled' ? 'Active' : 'Disabled'}">${device.status === 'Disabled' ? 'Activate' : 'Disable'}</button>
+          </td>
+        </tr>`).join('') : '<tr><td colspan="6">No scanner phones registered yet.</td></tr>';
     }
 
     function showTab(tab) {
@@ -1020,15 +1068,37 @@
       render();
     }
 
-    function exportCsv() {
-      const rows = [['ID', 'Name', 'National ID', 'Location', 'Branch', 'Phone', 'Email', 'Position', 'Status', 'Approved By', 'Approved At', 'Created At']];
-      state.records.forEach((r) => rows.push([r.id, r.name, r.nationalId || '', r.location || '', r.branch || '', r.phone || '', r.email || '', r.position, r.status || 'Pending', r.approvedBy || '', r.approvedAt || '', r.createdAt || '']));
+    function downloadCsv(filename, rows) {
       const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-      link.download = 'jixels-id-cards.csv';
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
+    }
+
+    function exportCsv() {
+      const rows = [['ID', 'Name', 'National ID', 'Location', 'Branch', 'Phone', 'Email', 'Position', 'Status', 'Approved By', 'Approved At', 'Created At']];
+      state.records.forEach((r) => rows.push([r.id, r.name, r.nationalId || '', r.location || '', r.branch || '', r.phone || '', r.email || '', r.position, r.status || 'Pending', r.approvedBy || '', r.approvedAt || '', r.createdAt || '']));
+      downloadCsv('jixels-id-cards.csv', rows);
+    }
+
+    function exportAttendanceCsv() {
+      const rows = [['Worker', 'ID', 'Branch', 'Position', 'Date', 'Time', 'Signed In', 'Signed Out', 'Status', 'Scanned By', 'GPS']];
+      filteredAttendance().forEach((r) => rows.push([
+        r.workerName || '',
+        r.workerId || r.cardId || '',
+        r.branch || '',
+        r.position || '',
+        formatDate(latestScanTime(r)),
+        formatTime(latestScanTime(r)),
+        formatDateTime(r.signedInAt),
+        formatDateTime(r.signedOutAt),
+        r.status || '',
+        r.scanSource || '',
+        gpsText(r)
+      ]));
+      downloadCsv(`jixels-attendance-${state.attendanceFilter}.csv`, rows);
     }
 
     async function backupJson() {
@@ -1210,6 +1280,16 @@
     els.pendingBtn.addEventListener('click', () => { els.search.value = 'pending'; render(); });
     els.allBtn.addEventListener('click', () => { els.search.value = ''; render(); });
     els.exportBtn.addEventListener('click', exportCsv);
+    els.exportAttendanceBtn.addEventListener('click', exportAttendanceCsv);
+    document.querySelectorAll('[data-attendance-filter]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.attendanceFilter = button.dataset.attendanceFilter;
+        document.querySelectorAll('[data-attendance-filter]').forEach((item) => {
+          item.classList.toggle('secondary', item !== button);
+        });
+        renderAttendance();
+      });
+    });
     els.backupBtn.addEventListener('click', () => backupJson().catch((error) => alert(friendlyError(error))));
     els.restoreInput.addEventListener('change', () => {
       const file = els.restoreInput.files[0];
@@ -1233,6 +1313,16 @@
       const button = event.target.closest('button[data-device-id]');
       if (!button) return;
       try {
+        const device = state.scannerDevices.find((item) => item.id === button.dataset.deviceId);
+        if (button.dataset.action === 'resend') {
+          if (!device?.devicePhone) throw new Error('This scanner phone has no saved phone number.');
+          await createScannerInvite({
+            ownerName: device.deviceOwner || '',
+            deviceName: device.deviceName || 'Scanner phone',
+            phone: device.devicePhone
+          });
+          return;
+        }
         const data = await adminRequest(`/api/scanner-devices/${encodeURIComponent(button.dataset.deviceId)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
