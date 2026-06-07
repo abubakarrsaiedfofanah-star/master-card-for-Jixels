@@ -959,7 +959,11 @@ async function handleApi(req, res, url) {
       sendJson(res, 401, { error: loginRequiredMessage });
       return true;
     }
-    sendJson(res, 200, { devices: await loadScannerDevices() });
+    try {
+      sendJson(res, 200, { devices: await loadScannerDevices() });
+    } catch (error) {
+      sendJson(res, 500, { error: error.message || 'Unable to load scanner phones.' });
+    }
     return true;
   }
 
