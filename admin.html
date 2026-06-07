@@ -328,6 +328,7 @@
           <button type="button" data-attendance-filter="today">Today</button>
           <button type="button" class="secondary" data-attendance-filter="yesterday">Yesterday</button>
           <button type="button" class="secondary" data-attendance-filter="week">This Week</button>
+          <button type="button" class="secondary" data-attendance-filter="month">This Month</button>
           <button type="button" class="secondary" data-attendance-filter="all">All</button>
           <button type="button" class="secondary" id="exportAttendanceBtn">Export Attendance CSV</button>
         </div>
@@ -830,6 +831,9 @@
         weekStart.setDate(today.getDate() - 6);
         return scanDate >= weekStart && scanDate <= today;
       }
+      if (state.attendanceFilter === 'month') {
+        return scanDate.getFullYear() === today.getFullYear() && scanDate.getMonth() === today.getMonth();
+      }
       return true;
     }
 
@@ -1098,7 +1102,10 @@
         r.scanSource || '',
         gpsText(r)
       ]));
-      downloadCsv(`jixels-attendance-${state.attendanceFilter}.csv`, rows);
+      const period = state.attendanceFilter === 'month'
+        ? new Date().toISOString().slice(0, 7)
+        : state.attendanceFilter;
+      downloadCsv(`jixels-attendance-${period}.csv`, rows);
     }
 
     async function backupJson() {
