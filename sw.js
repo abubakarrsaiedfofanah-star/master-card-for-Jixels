@@ -1,8 +1,9 @@
-const CACHE_NAME = 'jixels-scanner-v2';
+const CACHE_NAME = 'jixels-scanner-v3';
 const APP_SHELL = [
   '/admin',
   '/admin.html',
   '/manifest.webmanifest',
+  '/node_modules/html2canvas/dist/html2canvas.min.js',
   '/jixels-logo-form-ni-tenje-cropped.jpeg'
 ];
 

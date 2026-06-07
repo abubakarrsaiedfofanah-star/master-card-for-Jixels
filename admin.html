@@ -262,7 +262,7 @@
       .id-card { box-shadow: none; page-break-inside: avoid; }
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="/node_modules/html2canvas/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <header class="admin-header">
@@ -607,10 +607,27 @@
         }
       }
       if (!response.ok) {
-        if (response.status === 401) logout();
         throw new Error(data.error || fallbackMessage || 'Request failed.');
       }
       return data;
+    }
+
+    async function adminRequest(path, options = {}, fallbackMessage = 'Request failed.') {
+      const makeRequest = () => fetch(path, {
+        ...options,
+        headers: { ...headers(), ...(options.headers || {}) }
+      });
+      let response = await makeRequest();
+      if (response.status === 401 && state.user && state.pin) {
+        await login();
+        response = await makeRequest();
+      }
+      try {
+        return await readJsonResponse(response, fallbackMessage);
+      } catch (error) {
+        if (response.status === 401) logout();
+        throw error;
+      }
     }
 
     function ensureScannerDeviceId() {
@@ -684,30 +701,27 @@
     }
 
     async function loadAttendance() {
-      const response = await fetch('/api/attendance', { headers: headers() });
-      const data = await readJsonResponse(response, 'Unable to load sign in/out records.');
+      const data = await adminRequest('/api/attendance', {}, 'Unable to load sign in/out records.');
       state.attendance = data.attendance || [];
       renderAttendance();
     }
 
     async function loadScannerDevices() {
       ensureScannerDeviceId();
-      const response = await fetch('/api/scanner-devices', { headers: headers() });
-      const data = await readJsonResponse(response, 'Unable to load scanner phones.');
+      const data = await adminRequest('/api/scanner-devices', {}, 'Unable to load scanner phones.');
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
     }
 
     async function registerScannerDevice() {
-      const response = await fetch('/api/scanner-devices', {
+      const data = await adminRequest('/api/scanner-devices', {
         method: 'POST',
-        headers: { ...headers(), 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: ensureScannerDeviceId(),
           deviceName: els.scannerDeviceName.value.trim() || 'Scanner phone'
         })
-      });
-      const data = await readJsonResponse(response, 'Unable to register this phone.');
+      }, 'Unable to register this phone.');
       state.scannerDevices = data.devices || [];
       renderScannerDevices();
       els.attendanceNotice.textContent = 'This phone is registered for scanning.';
@@ -1026,17 +1040,16 @@
       }
       els.attendanceNotice.textContent = 'Capturing GPS...';
       const location = await currentLocation();
-      const response = await fetch('/api/scan', {
+      const data = await adminRequest('/api/scan', {
         method: 'POST',
-        headers: { ...headers(), 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: els.scanToken.value.trim(),
           action: els.scanAction.value,
           deviceId: ensureScannerDeviceId(),
           ...location
         })
-      });
-      const data = await readJsonResponse(response, 'Unable to record sign in/out.');
+      }, 'Unable to record sign in/out.');
       els.attendanceNotice.textContent = data.message || 'Sign in/out recorded.';
       els.scanToken.value = '';
       await loadAttendance();
@@ -1194,12 +1207,11 @@
       const button = event.target.closest('button[data-device-id]');
       if (!button) return;
       try {
-        const response = await fetch(`/api/scanner-devices/${encodeURIComponent(button.dataset.deviceId)}`, {
+        const data = await adminRequest(`/api/scanner-devices/${encodeURIComponent(button.dataset.deviceId)}`, {
           method: 'PATCH',
-          headers: { ...headers(), 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: button.dataset.deviceStatus })
-        });
-        const data = await readJsonResponse(response, 'Unable to update scanner phone.');
+        }, 'Unable to update scanner phone.');
         state.scannerDevices = data.devices || state.scannerDevices;
         renderScannerDevices();
       } catch (error) {
