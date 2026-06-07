@@ -1104,7 +1104,10 @@
         showAudit().catch((error) => alert(friendlyError(error)));
       }
       if (button.dataset.tab === 'attendance') {
-        Promise.all([loadAttendance(), loadScannerDevices()]).catch((error) => alert(friendlyError(error)));
+        Promise.allSettled([loadAttendance(), loadScannerDevices()]).then((results) => {
+          const failed = results.find((result) => result.status === 'rejected');
+          if (failed) els.attendanceNotice.textContent = friendlyError(failed.reason);
+        });
       }
     });
     els.forgotToggleBtn.addEventListener('click', () => els.resetBox.classList.toggle('hidden'));
