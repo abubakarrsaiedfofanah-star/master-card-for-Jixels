@@ -79,13 +79,15 @@
       <div class="notice hidden" id="scanNotice"></div>
     </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script>
     const state = {
       deviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
       scannerSession: sessionStorage.getItem('jixelsScannerSession') || '',
       installPrompt: null,
       cameraStream: null,
-      scanTimer: null
+      scanTimer: null,
+      cameraCanvas: document.createElement('canvas')
     };
     const els = {
       deviceNotice: document.getElementById('deviceNotice'),
@@ -232,8 +234,9 @@
     }
 
     async function startCamera() {
-      if (!('BarcodeDetector' in window)) throw new Error('Camera QR scanning is not supported on this browser. Use the phone camera/scanner app and paste the result.');
-      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available on this browser. Use the phone camera/scanner app and paste the worker card URL.');
+      const detector = 'BarcodeDetector' in window ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+      if (!detector && !window.jsQR) throw new Error('Camera QR scanning is still loading. Wait a moment, then try again. You can also paste the worker card URL.');
       state.cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       els.cameraPreview.srcObject = state.cameraStream;
       els.cameraPreview.classList.remove('hidden');
@@ -241,9 +244,20 @@
       await els.cameraPreview.play();
       state.scanTimer = setInterval(async () => {
         try {
-          const codes = await detector.detect(els.cameraPreview);
-          if (codes[0]?.rawValue) {
-            els.scanToken.value = codes[0].rawValue;
+          let scannedValue = '';
+          if (detector) {
+            const codes = await detector.detect(els.cameraPreview);
+            scannedValue = codes[0]?.rawValue || '';
+          } else if (els.cameraPreview.videoWidth && els.cameraPreview.videoHeight) {
+            state.cameraCanvas.width = els.cameraPreview.videoWidth;
+            state.cameraCanvas.height = els.cameraPreview.videoHeight;
+            const context = state.cameraCanvas.getContext('2d');
+            context.drawImage(els.cameraPreview, 0, 0, state.cameraCanvas.width, state.cameraCanvas.height);
+            const imageData = context.getImageData(0, 0, state.cameraCanvas.width, state.cameraCanvas.height);
+            scannedValue = window.jsQR(imageData.data, imageData.width, imageData.height)?.data || '';
+          }
+          if (scannedValue) {
+            els.scanToken.value = scannedValue;
             stopCamera();
             loadPersonDetails().catch((error) => {
               els.scanNotice.textContent = error.message || 'Unable to load worker details.';
