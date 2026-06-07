@@ -19,6 +19,12 @@
     button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
     .notice { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 12px; font-weight: 700; line-height: 1.4; }
+    .person { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #f8fafc; }
+    .person img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; object-position: center top; background: #e5e7eb; }
+    .person h2 { margin: 0 0 6px; font-size: 18px; }
+    .person dl { margin: 0; display: grid; grid-template-columns: 72px 1fr; gap: 4px 8px; font-size: 13px; }
+    .person dt { font-weight: 800; color: #64748b; }
+    .person dd { margin: 0; font-weight: 700; }
     .danger { border-color: #fecaca; background: #fff1f2; color: #991b1b; }
     .ok { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
     video { width: 100%; border-radius: 8px; background: #111827; }
@@ -42,6 +48,13 @@
         <button type="button" class="secondary hidden" id="stopCameraBtn">Stop Camera</button>
       </div>
       <video class="hidden" id="cameraPreview" playsinline muted></video>
+      <div class="person hidden" id="personBox">
+        <img id="personPhoto" alt="">
+        <div>
+          <h2 id="personName"></h2>
+          <dl id="personDetails"></dl>
+        </div>
+      </div>
       <label>Action
         <select id="scanAction">
           <option value="sign-in">Sign In</option>
@@ -68,6 +81,10 @@
       cameraBtn: document.getElementById('cameraBtn'),
       stopCameraBtn: document.getElementById('stopCameraBtn'),
       cameraPreview: document.getElementById('cameraPreview'),
+      personBox: document.getElementById('personBox'),
+      personPhoto: document.getElementById('personPhoto'),
+      personName: document.getElementById('personName'),
+      personDetails: document.getElementById('personDetails'),
       recordBtn: document.getElementById('recordBtn'),
       scanNotice: document.getElementById('scanNotice')
     };
@@ -110,10 +127,29 @@
       return data;
     }
 
-    async function recordScan() {
-      if (!state.deviceId || !state.deviceSecret) throw new Error('This phone is not registered for scanning.');
+    async function loadPersonDetails() {
       const token = els.scanToken.value.trim();
       if (!token) throw new Error('Scan or paste the worker card QR first.');
+      const response = await fetch(`/api/verify?token=${encodeURIComponent(token)}`);
+      const data = await readJson(response);
+      const card = data.card || {};
+      if (!card.valid) throw new Error(card.invalidReason || 'This worker card is not valid.');
+      els.personName.textContent = card.name || '';
+      els.personPhoto.src = card.photo || '';
+      els.personPhoto.classList.toggle('hidden', !card.photo);
+      els.personDetails.innerHTML = `
+        <dt>ID</dt><dd>${card.id || ''}</dd>
+        <dt>Position</dt><dd>${card.position || ''}</dd>
+        <dt>Branch</dt><dd>${card.branch || ''}</dd>
+        <dt>Status</dt><dd>${card.status || ''}</dd>
+      `;
+      els.personBox.classList.remove('hidden');
+      return card;
+    }
+
+    async function recordScan() {
+      if (!state.deviceId || !state.deviceSecret) throw new Error('This phone is not registered for scanning.');
+      await loadPersonDetails();
       els.scanNotice.textContent = 'Capturing GPS...';
       els.scanNotice.className = 'notice';
       const location = await currentLocation();
@@ -121,7 +157,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token,
+          token: els.scanToken.value.trim(),
           action: els.scanAction.value,
           deviceId: state.deviceId,
           deviceSecret: state.deviceSecret,
@@ -132,6 +168,7 @@
       els.scanNotice.textContent = data.message || 'Scan recorded.';
       els.scanNotice.className = 'notice ok';
       els.scanToken.value = '';
+      els.personBox.classList.add('hidden');
     }
 
     async function startCamera() {
@@ -148,6 +185,10 @@
           if (codes[0]?.rawValue) {
             els.scanToken.value = codes[0].rawValue;
             stopCamera();
+            loadPersonDetails().catch((error) => {
+              els.scanNotice.textContent = error.message || 'Unable to load worker details.';
+              els.scanNotice.className = 'notice danger';
+            });
           }
         } catch {}
       }, 700);
@@ -164,6 +205,10 @@
 
     els.recordBtn.addEventListener('click', () => recordScan().catch((error) => {
       els.scanNotice.textContent = error.message || 'Unable to record scan.';
+      els.scanNotice.className = 'notice danger';
+    }));
+    els.scanToken.addEventListener('change', () => loadPersonDetails().catch((error) => {
+      els.scanNotice.textContent = error.message || 'Unable to load worker details.';
       els.scanNotice.className = 'notice danger';
     }));
     els.cameraBtn.addEventListener('click', () => startCamera().catch((error) => {

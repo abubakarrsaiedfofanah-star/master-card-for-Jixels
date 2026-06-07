@@ -307,7 +307,7 @@
         <h2>Dashboard</h2>
         <button type="button" class="active" data-tab="dashboard">Dashboard</button>
         <button type="button" data-tab="registrations">Registrations</button>
-        <button type="button" data-tab="attendance">Sign In/Out</button>
+        <button type="button" data-tab="attendance">Scanner Phones</button>
         <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
@@ -322,7 +322,7 @@
       </section>
 
       <section class="panel tab-panel hidden" data-panel="attendance">
-        <h2>Worker Sign In/Out</h2>
+        <h2>Scanner Phones</h2>
         <div class="notice-box" id="scannerDeviceBox">
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
@@ -332,16 +332,6 @@
             <a class="button secondary" href="/scanner" target="_blank" rel="noopener">Open Scanner App</a>
           </div>
         </div>
-        <form id="attendanceForm">
-          <label>Card QR token or scanned URL<input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result"></label>
-          <label>Action
-            <select id="scanAction">
-              <option value="sign-in">Sign In</option>
-              <option value="sign-out">Sign Out</option>
-            </select>
-          </label>
-          <button type="submit">Record Scan</button>
-        </form>
         <div class="summary" id="attendanceNotice"></div>
         <div class="table-wrap">
           <table>
@@ -564,9 +554,6 @@
       restoreInput: document.getElementById('restoreInput'),
       auditBtn: document.getElementById('auditBtn'),
       auditBox: document.getElementById('auditBox'),
-      attendanceForm: document.getElementById('attendanceForm'),
-      scanToken: document.getElementById('scanToken'),
-      scanAction: document.getElementById('scanAction'),
       attendanceNotice: document.getElementById('attendanceNotice'),
       attendanceRows: document.getElementById('attendanceRows'),
       scannerDeviceStatus: document.getElementById('scannerDeviceStatus'),
@@ -1040,28 +1027,6 @@
       els.auditBox.textContent = JSON.stringify(data.log || [], null, 2);
     }
 
-    async function recordAttendanceScan() {
-      if (!activeScannerDevice()) {
-        throw new Error('Register this phone before scanning workers.');
-      }
-      els.attendanceNotice.textContent = 'Capturing GPS...';
-      const location = await currentLocation();
-      const data = await adminRequest('/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: els.scanToken.value.trim(),
-          action: els.scanAction.value,
-          deviceId: ensureScannerDeviceId(),
-          deviceSecret: state.scannerDeviceSecret,
-          ...location
-        })
-      }, 'Unable to record sign in/out.');
-      els.attendanceNotice.textContent = data.message || 'Sign in/out recorded.';
-      els.scanToken.value = '';
-      await loadAttendance();
-    }
-
     async function changePassword() {
       const response = await fetch('/api/change-password', {
         method: 'POST',
@@ -1231,12 +1196,6 @@
       await state.installPrompt.userChoice.catch(() => {});
       state.installPrompt = null;
       els.installScannerAppBtn.classList.add('hidden');
-    });
-    els.attendanceForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      recordAttendanceScan().catch((error) => {
-        els.attendanceNotice.textContent = friendlyError(error);
-      });
     });
     els.printCardBtn.addEventListener('click', () => {
       if (!state.currentCard) {
