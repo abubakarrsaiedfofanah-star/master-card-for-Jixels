@@ -47,11 +47,9 @@
         <button type="button" id="loginBtn">Unlock Scanner</button>
       </div>
       <div id="scannerControls" class="hidden">
-        <label>Card QR token or scanned URL
-          <input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result">
-        </label>
+        <input id="scanToken" type="hidden" autocomplete="off">
         <div class="row">
-          <button type="button" class="secondary" id="cameraBtn">Open Camera Scanner</button>
+          <button type="button" class="secondary" id="cameraBtn">Scan ID Card</button>
           <button type="button" class="secondary hidden" id="stopCameraBtn">Stop Camera</button>
         </div>
         <video class="hidden" id="cameraPreview" playsinline muted></video>
@@ -170,7 +168,7 @@
 
     async function loadPersonDetails() {
       const token = els.scanToken.value.trim();
-      if (!token) throw new Error('Scan or paste the worker card QR first.');
+      if (!token) throw new Error('Scan the worker ID card QR first.');
       const response = await fetch(`/api/verify?token=${encodeURIComponent(token)}`);
       const data = await readJson(response);
       const card = data.card || {};
@@ -234,9 +232,9 @@
     }
 
     async function startCamera() {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available on this browser. Use the phone camera/scanner app and paste the worker card URL.');
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available on this browser.');
       const detector = 'BarcodeDetector' in window ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
-      if (!detector && !window.jsQR) throw new Error('Camera QR scanning is still loading. Wait a moment, then try again. You can also paste the worker card URL.');
+      if (!detector && !window.jsQR) throw new Error('Camera QR scanning is still loading. Wait a moment, then try again.');
       state.cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       els.cameraPreview.srcObject = state.cameraStream;
       els.cameraPreview.classList.remove('hidden');
