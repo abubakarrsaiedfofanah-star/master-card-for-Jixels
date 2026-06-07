@@ -43,6 +43,9 @@
         <label>Phone name
           <input id="setupDeviceName" autocomplete="off" placeholder="Example: Reception phone">
         </label>
+        <label>Registered phone number
+          <input id="setupPhone" inputmode="tel" autocomplete="tel" placeholder="Phone number admin sent link to">
+        </label>
         <label>Set scanner password
           <input id="setupScannerPassword" type="password" autocomplete="new-password" placeholder="At least 4 characters">
         </label>
@@ -103,6 +106,7 @@
       installBtn: document.getElementById('installBtn'),
       setupBox: document.getElementById('setupBox'),
       setupDeviceName: document.getElementById('setupDeviceName'),
+      setupPhone: document.getElementById('setupPhone'),
       setupScannerPassword: document.getElementById('setupScannerPassword'),
       setupBtn: document.getElementById('setupBtn'),
       loginBox: document.getElementById('loginBox'),
@@ -209,6 +213,7 @@
           invite: inviteToken,
           deviceId: ensureScannerDeviceId(),
           deviceName: els.setupDeviceName.value.trim() || 'Scanner phone',
+          phone: els.setupPhone.value.trim(),
           scannerPassword: els.setupScannerPassword.value
         })
       });

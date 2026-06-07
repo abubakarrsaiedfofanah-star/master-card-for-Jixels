@@ -718,12 +718,16 @@
 
     async function createScannerInvite() {
       const deviceName = els.scannerDeviceName.value.trim() || 'Scanner phone';
+      const phone = whatsappPhone(els.scannerPhone.value);
+      if (!phone) {
+        els.attendanceNotice.textContent = 'Enter the phone number that should receive this scanner setup link.';
+        return;
+      }
       const data = await adminRequest('/api/scanner-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceName })
+        body: JSON.stringify({ deviceName, phone })
       }, 'Unable to create scanner setup link.');
-      const phone = whatsappPhone(els.scannerPhone.value);
       const message = `Open this Jixels scanner setup link on the phone that will scan ID cards: ${data.url}`;
       els.scannerInviteLink.href = data.url;
       els.scannerInviteLink.textContent = data.url;
@@ -731,7 +735,7 @@
         ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         : `https://wa.me/?text=${encodeURIComponent(message)}`;
       els.scannerInviteBox.classList.remove('hidden');
-      els.attendanceNotice.textContent = 'Send this setup link to the phone that will scan ID cards. They will set a scanner password on their own phone.';
+      els.attendanceNotice.textContent = 'Send this setup link to the registered scanner phone number. They will set a scanner password on their own phone.';
     }
 
     function startAutoRefresh() {

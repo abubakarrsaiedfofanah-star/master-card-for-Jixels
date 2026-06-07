@@ -708,10 +708,20 @@ function readScannerSession(value) {
   }
 }
 
-function signScannerInvite(deviceName) {
+function normalizePhoneNumber(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) return `254${digits.slice(1)}`;
+  return digits;
+}
+
+function signScannerInvite(deviceName, phone) {
+  const scannerPhone = normalizePhoneNumber(phone);
+  if (!scannerPhone) throw new Error('Scanner phone number is required.');
   const payload = base64UrlEncode(JSON.stringify({
     scope: 'scanner-invite',
     deviceName: String(deviceName || 'Scanner phone').trim() || 'Scanner phone',
+    phone: scannerPhone,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
     nonce: crypto.randomBytes(12).toString('hex')
   }));
@@ -1077,9 +1087,14 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
-      const token = signScannerInvite(payload.deviceName);
+      const phone = normalizePhoneNumber(payload.phone);
+      if (!phone) {
+        sendJson(res, 400, { error: 'Scanner phone number is required.' });
+        return true;
+      }
+      const token = signScannerInvite(payload.deviceName, phone);
       const inviteUrl = scannerInviteUrl(req, token);
-      await appendAudit('scanner-invite-created', { id: String(payload.deviceName || 'Scanner phone') }, admin.username);
+      await appendAudit('scanner-invite-created', { id: `${String(payload.deviceName || 'Scanner phone')}:${phone}` }, admin.username);
       sendJson(res, 200, { url: inviteUrl, token });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to create scanner setup link.' });
@@ -1093,6 +1108,11 @@ async function handleApi(req, res, url) {
       const invite = readScannerInvite(payload.invite);
       if (!invite) {
         sendJson(res, 403, { error: 'Scanner setup link is invalid or expired. Ask admin for a new link.' });
+        return true;
+      }
+      const scannerPhone = normalizePhoneNumber(payload.phone);
+      if (!scannerPhone || scannerPhone !== invite.phone) {
+        sendJson(res, 403, { error: 'This scanner setup link is only for the phone number admin registered.' });
         return true;
       }
       const deviceId = normalizeDeviceId(payload.deviceId);
