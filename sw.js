@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jixels-scanner-v5';
+const CACHE_NAME = 'jixels-scanner-v6';
 const APP_SHELL = [
   '/scanner',
   '/scanner.html',

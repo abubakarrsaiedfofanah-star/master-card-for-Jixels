@@ -40,35 +40,49 @@
         <a class="button secondary" href="/admin">Admin</a>
         <button type="button" class="secondary hidden" id="installBtn">Install App</button>
       </div>
-      <label>Card QR token or scanned URL
-        <input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result">
-      </label>
-      <div class="row">
-        <button type="button" class="secondary" id="cameraBtn">Open Camera Scanner</button>
-        <button type="button" class="secondary hidden" id="stopCameraBtn">Stop Camera</button>
+      <div id="loginBox">
+        <label>Scanner password
+          <input id="scannerPassword" type="password" autocomplete="current-password" placeholder="Enter scanner password">
+        </label>
+        <button type="button" id="loginBtn">Unlock Scanner</button>
       </div>
-      <video class="hidden" id="cameraPreview" playsinline muted></video>
-      <div class="person hidden" id="personBox">
-        <img id="personPhoto" alt="">
-        <div>
-          <h2 id="personName"></h2>
-          <dl id="personDetails"></dl>
+      <div id="scannerControls" class="hidden">
+        <label>Card QR token or scanned URL
+          <input id="scanToken" autocomplete="off" required placeholder="Scan or paste worker card QR result">
+        </label>
+        <div class="row">
+          <button type="button" class="secondary" id="cameraBtn">Open Camera Scanner</button>
+          <button type="button" class="secondary hidden" id="stopCameraBtn">Stop Camera</button>
         </div>
+        <video class="hidden" id="cameraPreview" playsinline muted></video>
+        <div class="person hidden" id="personBox">
+          <img id="personPhoto" alt="">
+          <div>
+            <h2 id="personName"></h2>
+            <dl id="personDetails"></dl>
+          </div>
+        </div>
+        <label>Action
+          <select id="scanAction">
+            <option value="sign-in">Sign In</option>
+            <option value="sign-out">Sign Out</option>
+          </select>
+        </label>
+        <button type="button" id="recordBtn">Record Scan</button>
+        <details>
+          <summary>Change scanner password</summary>
+          <label>Current password<input id="currentScannerPassword" type="password"></label>
+          <label>New password<input id="newScannerPassword" type="password"></label>
+          <button type="button" class="secondary" id="changePasswordBtn">Change Password</button>
+        </details>
       </div>
-      <label>Action
-        <select id="scanAction">
-          <option value="sign-in">Sign In</option>
-          <option value="sign-out">Sign Out</option>
-        </select>
-      </label>
-      <button type="button" id="recordBtn">Record Scan</button>
       <div class="notice hidden" id="scanNotice"></div>
     </section>
   </main>
   <script>
     const state = {
       deviceId: localStorage.getItem('jixelsScannerDeviceId') || '',
-      deviceSecret: localStorage.getItem('jixelsScannerDeviceSecret') || '',
+      scannerSession: sessionStorage.getItem('jixelsScannerSession') || '',
       installPrompt: null,
       cameraStream: null,
       scanTimer: null
@@ -76,6 +90,10 @@
     const els = {
       deviceNotice: document.getElementById('deviceNotice'),
       installBtn: document.getElementById('installBtn'),
+      loginBox: document.getElementById('loginBox'),
+      scannerPassword: document.getElementById('scannerPassword'),
+      loginBtn: document.getElementById('loginBtn'),
+      scannerControls: document.getElementById('scannerControls'),
       scanToken: document.getElementById('scanToken'),
       scanAction: document.getElementById('scanAction'),
       cameraBtn: document.getElementById('cameraBtn'),
@@ -86,17 +104,24 @@
       personName: document.getElementById('personName'),
       personDetails: document.getElementById('personDetails'),
       recordBtn: document.getElementById('recordBtn'),
+      currentScannerPassword: document.getElementById('currentScannerPassword'),
+      newScannerPassword: document.getElementById('newScannerPassword'),
+      changePasswordBtn: document.getElementById('changePasswordBtn'),
       scanNotice: document.getElementById('scanNotice')
     };
 
     function updateDeviceNotice() {
-      if (state.deviceId && state.deviceSecret) {
-        els.deviceNotice.textContent = 'This phone is registered for scanning.';
+      if (state.deviceId) {
+        els.deviceNotice.textContent = state.scannerSession ? 'Scanner unlocked on this registered phone.' : 'This phone is registered. Enter scanner password to continue.';
         els.deviceNotice.className = 'notice ok';
+        els.loginBox.classList.toggle('hidden', Boolean(state.scannerSession));
+        els.scannerControls.classList.toggle('hidden', !state.scannerSession);
         return;
       }
       els.deviceNotice.textContent = 'This phone is not registered yet. Ask an admin to open /admin on this phone and tap Register This Phone.';
       els.deviceNotice.className = 'notice danger';
+      els.loginBox.classList.add('hidden');
+      els.scannerControls.classList.add('hidden');
     }
 
     function currentLocation() {
@@ -127,6 +152,20 @@
       return data;
     }
 
+    async function scannerLogin() {
+      if (!state.deviceId) throw new Error('This phone is not registered for scanning.');
+      const response = await fetch('/api/scanner-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: state.deviceId, password: els.scannerPassword.value })
+      });
+      const data = await readJson(response);
+      state.scannerSession = data.scannerSession || '';
+      sessionStorage.setItem('jixelsScannerSession', state.scannerSession);
+      els.scannerPassword.value = '';
+      updateDeviceNotice();
+    }
+
     async function loadPersonDetails() {
       const token = els.scanToken.value.trim();
       if (!token) throw new Error('Scan or paste the worker card QR first.');
@@ -148,7 +187,7 @@
     }
 
     async function recordScan() {
-      if (!state.deviceId || !state.deviceSecret) throw new Error('This phone is not registered for scanning.');
+      if (!state.deviceId || !state.scannerSession) throw new Error('Enter scanner password first.');
       await loadPersonDetails();
       els.scanNotice.textContent = 'Capturing GPS...';
       els.scanNotice.className = 'notice';
@@ -160,7 +199,7 @@
           token: els.scanToken.value.trim(),
           action: els.scanAction.value,
           deviceId: state.deviceId,
-          deviceSecret: state.deviceSecret,
+          scannerSession: state.scannerSession,
           ...location
         })
       });
@@ -169,6 +208,27 @@
       els.scanNotice.className = 'notice ok';
       els.scanToken.value = '';
       els.personBox.classList.add('hidden');
+    }
+
+    async function changeScannerPassword() {
+      if (!state.deviceId || !state.scannerSession) throw new Error('Enter scanner password first.');
+      const response = await fetch('/api/scanner-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: state.deviceId,
+          scannerSession: state.scannerSession,
+          currentPassword: els.currentScannerPassword.value,
+          newPassword: els.newScannerPassword.value
+        })
+      });
+      const data = await readJson(response);
+      state.scannerSession = data.scannerSession || state.scannerSession;
+      sessionStorage.setItem('jixelsScannerSession', state.scannerSession);
+      els.currentScannerPassword.value = '';
+      els.newScannerPassword.value = '';
+      els.scanNotice.textContent = 'Scanner password changed.';
+      els.scanNotice.className = 'notice ok';
     }
 
     async function startCamera() {
@@ -205,6 +265,14 @@
 
     els.recordBtn.addEventListener('click', () => recordScan().catch((error) => {
       els.scanNotice.textContent = error.message || 'Unable to record scan.';
+      els.scanNotice.className = 'notice danger';
+    }));
+    els.loginBtn.addEventListener('click', () => scannerLogin().catch((error) => {
+      els.scanNotice.textContent = error.message || 'Unable to unlock scanner.';
+      els.scanNotice.className = 'notice danger';
+    }));
+    els.changePasswordBtn.addEventListener('click', () => changeScannerPassword().catch((error) => {
+      els.scanNotice.textContent = error.message || 'Unable to change scanner password.';
       els.scanNotice.className = 'notice danger';
     }));
     els.scanToken.addEventListener('change', () => loadPersonDetails().catch((error) => {

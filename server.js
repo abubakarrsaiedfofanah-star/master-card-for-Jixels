@@ -266,6 +266,8 @@ function fromSupabaseScannerDevice(row) {
     id: row.id,
     deviceId: row.device_id,
     deviceSecret: row.device_secret || '',
+    passwordSalt: row.password_salt || '',
+    passwordHash: row.password_hash || '',
     deviceName: row.device_name || '',
     registeredBy: row.registered_by || 'admin',
     status: row.status || 'Active',
@@ -279,6 +281,8 @@ function toSupabaseScannerDevice(item) {
     id: item.id,
     device_id: item.deviceId,
     device_secret: item.deviceSecret || '',
+    password_salt: item.passwordSalt || '',
+    password_hash: item.passwordHash || '',
     device_name: item.deviceName || '',
     registered_by: item.registeredBy || 'admin',
     status: item.status || 'Active',
@@ -652,16 +656,54 @@ async function requireRegisteredScannerDevice(payload) {
   const devices = await loadScannerDevices();
   const device = devices.find((item) => item.deviceId === deviceId && (item.status || 'Active') === 'Active');
   if (!device) throw new Error('This phone is not registered for scanning.');
-  if (device.deviceSecret && String(payload.deviceSecret || '') !== device.deviceSecret) {
-    throw new Error('This scanner app is not authorized on this phone. Register this phone again from admin.');
-  }
+  const session = readScannerSession(payload.scannerSession);
+  if (!session || session.deviceId !== device.deviceId) throw new Error('Scanner password login is required.');
   return device;
 }
 
 function publicScannerDevice(device) {
   if (!device) return device;
-  const { deviceSecret, ...safeDevice } = device;
+  const { deviceSecret, passwordSalt, passwordHash, ...safeDevice } = device;
   return safeDevice;
+}
+
+function signScannerSession(device) {
+  const payload = base64UrlEncode(JSON.stringify({
+    scope: 'scanner',
+    deviceId: device.deviceId,
+    exp: Date.now() + 12 * 60 * 60 * 1000
+  }));
+  const signature = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  return `v1.${payload}.${signature}`;
+}
+
+function readScannerSession(value) {
+  const token = String(value || '').trim();
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'v1') return null;
+  const [, payload, signature] = parts;
+  const expected = crypto
+    .createHmac('sha256', qrSigningSecret())
+    .update(payload)
+    .digest('base64url');
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+  try {
+    const data = JSON.parse(base64UrlDecode(payload));
+    if (data.scope !== 'scanner' || Date.now() > Number(data.exp || 0)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function verifyScannerPassword(device, password) {
+  return Boolean(device?.passwordSalt && device?.passwordHash) &&
+    hashPassword(password || '', device.passwordSalt) === device.passwordHash;
 }
 
 function currentOpenAttendance(records, cardId) {
@@ -991,12 +1033,21 @@ async function handleApi(req, res, url) {
         sendJson(res, 400, { error: 'Device ID is required.' });
         return true;
       }
+      const scannerPassword = String(payload.scannerPassword || '').trim();
+      if (scannerPassword.length < 4) {
+        sendJson(res, 400, { error: 'Scanner password must be at least 4 characters.' });
+        return true;
+      }
       const devices = await loadScannerDevices();
       const existing = devices.find((item) => item.deviceId === deviceId);
       const now = new Date().toISOString();
+      const passwordSalt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = hashPassword(scannerPassword, passwordSalt);
       if (existing) {
         existing.deviceName = String(payload.deviceName || existing.deviceName || 'Scanner phone').trim();
         existing.deviceSecret = existing.deviceSecret || crypto.randomBytes(32).toString('hex');
+        existing.passwordSalt = passwordSalt;
+        existing.passwordHash = passwordHash;
         existing.status = 'Active';
         existing.updatedAt = now;
       } else {
@@ -1005,6 +1056,8 @@ async function handleApi(req, res, url) {
           id: `SCN-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
           deviceId,
           deviceSecret,
+          passwordSalt,
+          passwordHash,
           deviceName: String(payload.deviceName || 'Scanner phone').trim(),
           registeredBy: admin.username,
           status: 'Active',
@@ -1015,7 +1068,7 @@ async function handleApi(req, res, url) {
       await saveScannerDevices(devices);
       await appendAudit('scanner-phone-registered', { id: deviceId }, admin.username);
       const currentDevice = devices.find((item) => item.deviceId === deviceId);
-      sendJson(res, 200, { devices: devices.map(publicScannerDevice), scannerDeviceSecret: currentDevice?.deviceSecret || '' });
+      sendJson(res, 200, { devices: devices.map(publicScannerDevice), scannerSession: currentDevice ? signScannerSession(currentDevice) : '' });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to register scanner phone.' });
     }
@@ -1044,6 +1097,55 @@ async function handleApi(req, res, url) {
       sendJson(res, 200, { device: publicScannerDevice(device), devices: devices.map(publicScannerDevice) });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to update scanner phone.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-login' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const deviceId = normalizeDeviceId(payload.deviceId);
+      const devices = await loadScannerDevices();
+      const device = devices.find((item) => item.deviceId === deviceId && (item.status || 'Active') === 'Active');
+      if (!device || !verifyScannerPassword(device, payload.password)) {
+        sendJson(res, 401, { error: 'Invalid scanner password or unregistered phone.' });
+        return true;
+      }
+      sendJson(res, 200, { scannerSession: signScannerSession(device), device: publicScannerDevice(device) });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to login scanner.' });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/scanner-password' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req));
+      const deviceId = normalizeDeviceId(payload.deviceId);
+      const devices = await loadScannerDevices();
+      const device = devices.find((item) => item.deviceId === deviceId && (item.status || 'Active') === 'Active');
+      const session = readScannerSession(payload.scannerSession);
+      if (!device || !session || session.deviceId !== device.deviceId) {
+        sendJson(res, 401, { error: 'Scanner password login is required.' });
+        return true;
+      }
+      if (!verifyScannerPassword(device, payload.currentPassword)) {
+        sendJson(res, 403, { error: 'Current scanner password is incorrect.' });
+        return true;
+      }
+      const nextPassword = String(payload.newPassword || '').trim();
+      if (nextPassword.length < 4) {
+        sendJson(res, 400, { error: 'New scanner password must be at least 4 characters.' });
+        return true;
+      }
+      device.passwordSalt = crypto.randomBytes(16).toString('hex');
+      device.passwordHash = hashPassword(nextPassword, device.passwordSalt);
+      device.updatedAt = new Date().toISOString();
+      await saveScannerDevices(devices);
+      await appendAudit('scanner-password-changed', { id: device.deviceId }, device.deviceName || 'scanner');
+      sendJson(res, 200, { ok: true, scannerSession: signScannerSession(device) });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Unable to change scanner password.' });
     }
     return true;
   }

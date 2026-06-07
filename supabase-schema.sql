@@ -50,6 +50,8 @@ create table if not exists scanner_devices (
   id text primary key,
   device_id text not null unique,
   device_secret text not null default '',
+  password_salt text not null default '',
+  password_hash text not null default '',
   device_name text not null default '',
   registered_by text not null default 'admin',
   status text not null default 'Active',
@@ -68,6 +70,8 @@ create index if not exists scanner_devices_status_idx on scanner_devices (status
 
 alter table cards add column if not exists email text not null default '';
 alter table scanner_devices add column if not exists device_secret text not null default '';
+alter table scanner_devices add column if not exists password_salt text not null default '';
+alter table scanner_devices add column if not exists password_hash text not null default '';
 
 alter table cards enable row level security;
 alter table audit_log enable row level security;
