@@ -308,6 +308,7 @@
         <button type="button" class="active" data-tab="dashboard">Dashboard</button>
         <button type="button" data-tab="registrations">Registrations</button>
         <button type="button" data-tab="attendance">Attendance</button>
+        <button type="button" data-tab="scanner">Set Scanner</button>
         <button type="button" data-tab="card">ID Card</button>
         <button type="button" data-tab="edit">Edit Card</button>
         <button type="button" data-tab="create">Create Card</button>
@@ -323,6 +324,18 @@
 
       <section class="panel tab-panel hidden" data-panel="attendance">
         <h2>Attendance</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
+            </thead>
+            <tbody id="attendanceRows"><tr><td colspan="8">No sign in/out records loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel tab-panel hidden" data-panel="scanner">
+        <h2>Set Scanner</h2>
         <div class="notice-box" id="scannerDeviceBox">
           <div>Scanner phone: <strong id="scannerDeviceStatus">Checking...</strong></div>
           <div class="controls">
@@ -347,14 +360,6 @@
               <tr><th>Registered Phone</th><th>Device ID</th><th>Status</th><th>Registered By</th><th>Action</th></tr>
             </thead>
             <tbody id="scannerDeviceRows"><tr><td colspan="5">No scanner phones loaded.</td></tr></tbody>
-          </table>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Worker</th><th>ID</th><th>Branch</th><th>Position</th><th>Signed In</th><th>Signed Out</th><th>Status</th><th>GPS</th></tr>
-            </thead>
-            <tbody id="attendanceRows"><tr><td colspan="8">No sign in/out records loaded.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1112,9 +1117,11 @@
         showAudit().catch((error) => alert(friendlyError(error)));
       }
       if (button.dataset.tab === 'attendance') {
-        Promise.allSettled([loadAttendance(), loadScannerDevices()]).then((results) => {
-          const failed = results.find((result) => result.status === 'rejected');
-          if (failed) els.attendanceNotice.textContent = friendlyError(failed.reason);
+        loadAttendance().catch((error) => alert(friendlyError(error)));
+      }
+      if (button.dataset.tab === 'scanner') {
+        loadScannerDevices().catch((error) => {
+          els.attendanceNotice.textContent = friendlyError(error);
         });
       }
     });
