@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jixels ID Cards - System Logic Reference</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #202938;
+      background: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    h1, h2, h3 { margin: 0; line-height: 1.15; }
+    h1 { font-size: 27px; color: #2078bc; }
+    h2 {
+      margin-top: 22px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #4b9bda;
+      color: #2078bc;
+      font-size: 17px;
+    }
+    h3 { margin-top: 12px; font-size: 13px; color: #202938; }
+    p { margin: 7px 0; }
+    ul, ol { margin: 7px 0 7px 18px; padding: 0; }
+    li { margin: 3px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: avoid; }
+    th, td { border: 1px solid #d9e0ea; padding: 6px 7px; vertical-align: top; }
+    th { background: #eef2f6; color: #344256; text-align: left; }
+    code { font-family: Consolas, "Courier New", monospace; color: #133b5c; }
+    .cover {
+      border: 2px solid #4b9bda;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 18px;
+      background: #f8fbff;
+    }
+    .subtitle { margin-top: 8px; font-size: 14px; font-weight: 700; color: #3b4655; }
+    .meta { margin-top: 16px; display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; }
+    .badge {
+      display: inline-block;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      font-weight: 700;
+      color: #145da0;
+      margin: 2px 4px 2px 0;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .box {
+      border: 1px solid #d9e0ea;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      page-break-inside: avoid;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      margin-top: 10px;
+      page-break-inside: avoid;
+    }
+    .step {
+      min-height: 78px;
+      border: 1px solid #bfd9ee;
+      border-radius: 8px;
+      padding: 8px;
+      background: #f8fbff;
+    }
+    .step strong { display: block; color: #2078bc; margin-bottom: 4px; }
+    .note {
+      border-left: 4px solid #f0c51b;
+      background: #fffbe6;
+      padding: 8px 10px;
+      margin-top: 8px;
+    }
+    .card-spec {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 14px;
+      align-items: start;
+      margin-top: 8px;
+      page-break-inside: avoid;
+    }
+    .mini-card {
+      width: 132px;
+      height: 208px;
+      border: 1px solid #d9e0ea;
+      border-radius: 10px;
+      position: relative;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 5px 12px rgba(31, 47, 68, .12);
+    }
+    .mini-logo { position: absolute; left: 17px; top: 9px; width: 98px; height: 44px; border: 1px dashed #b8c5d3; display: grid; place-items: center; font-size: 9px; color: #617086; }
+    .mini-photo { position: absolute; left: 32px; top: 59px; width: 68px; height: 68px; border-radius: 50%; border: 3px solid #f0c51b; background: #eef2f6; display: grid; place-items: center; font-size: 9px; color: #617086; }
+    .mini-band { position: absolute; left: 10px; right: 10px; top: 131px; height: 52px; border-radius: 8px; background: #4b9bda; }
+    .mini-band:before { content: ""; position: absolute; left: 9px; right: 9px; top: 6px; height: 2px; background: #f0c51b; border-radius: 6px; }
+    .mini-lines { position: absolute; left: 18px; right: 18px; top: 143px; display: grid; gap: 5px; }
+    .mini-lines span { height: 5px; border-radius: 4px; background: rgba(255,255,255,.8); }
+    .mini-qr { position: absolute; left: 46px; top: 10px; width: 40px; height: 40px; border: 1px solid #b8c5d3; background: repeating-linear-gradient(45deg, #202938 0 3px, #fff 3px 6px); }
+    .mini-back-text { position: absolute; left: 16px; right: 14px; top: 57px; height: 84px; border: 1px dashed #b8c5d3; color: #617086; font-size: 8px; padding: 4px; }
+    .mini-back-logo { position: absolute; left: 46px; bottom: 19px; width: 40px; height: 20px; border: 1px dashed #b8c5d3; }
+    .page-break { break-before: page; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h1>Jixels ID Cards System Logic</h1>
+    <div class="subtitle">Reference document for rebuilding, redesigning, or adapting the ID card system.</div>
+    <div class="meta">
+      <strong>Project</strong><span>Jixels ID card registration, approval, card generation, and verification portal</span>
+      <strong>Generated</strong><span>2026-06-07</span>
+      <strong>Main files</strong><span><code>server.js</code>, <code>index.html</code>, <code>admin.html</code>, <code>supabase-schema.sql</code></span>
+      <strong>Runtime</strong><span>Node.js 18+, plain HTML/CSS/JavaScript frontend</span>
+    </div>
+  </section>
+
+  <h2>1. High-Level Purpose</h2>
+  <p>The system lets workers register for a Jixels ID card through a master QR link. Registrations are stored as Pending records. An admin reviews the records, approves or rejects them, and approved workers receive a downloadable/printable ID card. The QR on each approved card verifies the worker through the server, so inactive, rejected, suspended, lost, or deleted cards show as not valid.</p>
+  <p>
+    <span class="badge">Public registration</span>
+    <span class="badge">Admin approval</span>
+    <span class="badge">ID card print/download</span>
+    <span class="badge">QR verification</span>
+    <span class="badge">Backup and audit</span>
+  </p>
+
+  <h2>2. Main Components</h2>
+  <div class="grid">
+    <div class="box">
+      <h3>Public Page: <code>index.html</code></h3>
+      <ul>
+        <li>Shows the registration form only when opened with <code>?master=TOKEN#apply</code>.</li>
+        <li>Accepts worker details and a photo.</li>
+        <li>Shows a tracking/claim link after successful submission.</li>
+        <li>Shows verification result when opened with <code>?token=...</code>.</li>
+        <li>Shows worker claim/download view when opened with <code>?claim=...</code>.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Admin Page: <code>admin.html</code></h3>
+      <ul>
+        <li>Admin login with session token.</li>
+        <li>Dashboard counts by status.</li>
+        <li>Search/filter registrations.</li>
+        <li>Approve, reject, mark inactive, edit, create manually.</li>
+        <li>Print/download approved ID cards and send worker notification links.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Server: <code>server.js</code></h3>
+      <ul>
+        <li>Serves HTML/assets and all <code>/api/*</code> routes.</li>
+        <li>Loads configuration from <code>.env</code>.</li>
+        <li>Stores records in Supabase when configured, otherwise local JSON.</li>
+        <li>Generates worker IDs and verification tokens.</li>
+        <li>Handles login, password reset, audit, backup, restore, status changes.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Database: <code>supabase-schema.sql</code></h3>
+      <ul>
+        <li><code>cards</code> table stores workers and ID card status.</li>
+        <li><code>audit_log</code> table stores key admin/system actions.</li>
+        <li>Unique constraints protect National ID, phone, email, and verification token.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>3. Core User Flow</h2>
+  <div class="flow">
+    <div class="step"><strong>1. Master QR</strong>Admin prints a master QR that points to <code>/?master=TOKEN#apply</code>.</div>
+    <div class="step"><strong>2. Registration</strong>Worker scans QR and fills form: name, location, branch, National ID, phone, email, position, photo.</div>
+    <div class="step"><strong>3. Pending Save</strong>Server validates data, creates ID and verification token, saves status as Pending.</div>
+    <div class="step"><strong>4. Admin Review</strong>Admin logs in, checks record, edits if needed, then approves/rejects/inactivates.</div>
+    <div class="step"><strong>5. Card + Verify</strong>Approved card can be printed/downloaded. Its QR checks <code>/api/verify?token=...</code>.</div>
+  </div>
+
+  <h2>4. Business Rules</h2>
+  <table>
+    <tr><th>Rule</th><th>Logic</th></tr>
+    <tr><td>Public registration gate</td><td>A non-admin registration must include the current master token. Without it, the server returns a forbidden registration error.</td></tr>
+    <tr><td>Required fields</td><td>Name, location, branch, National ID, phone, email, position, and photo are required.</td></tr>
+    <tr><td>Email format</td><td>Email must match a simple email pattern before saving.</td></tr>
+    <tr><td>Duplicate protection</td><td>Phone, email, and National ID must be unique.</td></tr>
+    <tr><td>Director limit</td><td>Only one Director card is allowed. The first Director gets <code>JIX/D</code>.</td></tr>
+    <tr><td>Default status</td><td>Public records are always saved as <code>Pending</code>. Admin/manual records may set status.</td></tr>
+    <tr><td>Approval</td><td>Approval sets status to <code>Approved</code>, ensures a verification token exists, and records approved-by and approved-at values.</td></tr>
+    <tr><td>Inactive/delete</td><td>Delete requests do not erase records. The system marks the card <code>Inactive</code> with a reason.</td></tr>
+    <tr><td>Verification privacy</td><td>Public verification returns only last 4 digits of National ID, not the full number.</td></tr>
+  </table>
+
+  <h2>5. ID Number Logic</h2>
+  <p>The server builds worker IDs from the worker position.</p>
+  <table>
+    <tr><th>Position</th><th>Code</th><th>Example ID</th></tr>
+    <tr><td>Director</td><td><code>D</code></td><td><code>JIX/D</code></td></tr>
+    <tr><td>One-word role, e.g. Designer</td><td>First 3 letters uppercase</td><td><code>JIX/DES/001</code></td></tr>
+    <tr><td>Multi-word role, e.g. Sales Manager</td><td>First letters, max 4</td><td><code>JIX/SM/001</code></td></tr>
+    <tr><td>Empty/invalid role</td><td><code>GEN</code></td><td><code>JIX/GEN/001</code></td></tr>
+  </table>
+  <p>The sequence number starts from the count of existing cards with the same normalized position plus one. If an ID already exists, the server keeps increasing the sequence until it finds a free ID.</p>
+
+  <h2>6. Status and Validity Logic</h2>
+  <table>
+    <tr><th>Status</th><th>Public Validity</th><th>Message Logic</th></tr>
+    <tr><td>Approved</td><td>Valid Worker</td><td>Shows as valid and allows card download/print.</td></tr>
+    <tr><td>Pending</td><td>Not Valid</td><td>Worker has not been approved yet.</td></tr>
+    <tr><td>Rejected</td><td>Not Valid</td><td>Registration was rejected by admin.</td></tr>
+    <tr><td>Suspended</td><td>Not Valid</td><td>Worker has been suspended.</td></tr>
+    <tr><td>Lost</td><td>Not Valid</td><td>ID card was reported lost.</td></tr>
+    <tr><td>Inactive</td><td>Not Valid</td><td>Shows inactive reason if available.</td></tr>
+    <tr><td>Deleted/unknown token</td><td>Not Valid</td><td>Card is not active in the system.</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+  <h2>7. API Map</h2>
+  <table>
+    <tr><th>Route</th><th>Method</th><th>Access</th><th>Purpose</th></tr>
+    <tr><td><code>/api/health</code></td><td>GET</td><td>Public</td><td>Check server and storage mode.</td></tr>
+    <tr><td><code>/api/master-link</code></td><td>GET</td><td>Public</td><td>Returns final master registration URL.</td></tr>
+    <tr><td><code>/api/login</code></td><td>POST</td><td>Public</td><td>Admin login. Returns session token.</td></tr>
+    <tr><td><code>/api/forgot-password</code></td><td>POST</td><td>Public</td><td>Sends reset code to registered admin email.</td></tr>
+    <tr><td><code>/api/reset-password</code></td><td>POST</td><td>Public</td><td>Verifies reset code and changes admin password.</td></tr>
+    <tr><td><code>/api/change-password</code></td><td>POST</td><td>Super admin</td><td>Changes username, email, and password.</td></tr>
+    <tr><td><code>/api/cards</code></td><td>GET</td><td>Admin</td><td>Loads all card records.</td></tr>
+    <tr><td><code>/api/cards</code></td><td>POST</td><td>Master QR or admin</td><td>Creates a new card registration.</td></tr>
+    <tr><td><code>/api/cards/:id</code></td><td>PUT</td><td>Admin</td><td>Edits card fields.</td></tr>
+    <tr><td><code>/api/cards/:id/status</code></td><td>PATCH</td><td>Admin</td><td>Changes Pending/Approved/Rejected/Suspended/Lost/Inactive.</td></tr>
+    <tr><td><code>/api/cards/:id</code></td><td>DELETE</td><td>Admin</td><td>Marks card inactive instead of deleting.</td></tr>
+    <tr><td><code>/api/verify?token=...</code></td><td>GET</td><td>Public</td><td>Returns public card validity result.</td></tr>
+    <tr><td><code>/api/audit</code></td><td>GET</td><td>Admin</td><td>Loads audit log.</td></tr>
+    <tr><td><code>/api/backup</code></td><td>GET</td><td>Super admin</td><td>Exports cards and audit JSON.</td></tr>
+    <tr><td><code>/api/restore</code></td><td>POST</td><td>Super admin</td><td>Restores cards and audit JSON.</td></tr>
+  </table>
+
+  <h2>8. Data Model</h2>
+  <table>
+    <tr><th>Field</th><th>Meaning</th><th>Notes</th></tr>
+    <tr><td><code>id</code></td><td>Printed worker ID number</td><td>Primary key. Example: <code>JIX/DES/001</code>.</td></tr>
+    <tr><td><code>name</code></td><td>Full worker name</td><td>Required.</td></tr>
+    <tr><td><code>location</code></td><td>Worker location</td><td>Required.</td></tr>
+    <tr><td><code>branch</code></td><td>Branch name</td><td>Required, searchable/filterable.</td></tr>
+    <tr><td><code>nationalId</code></td><td>National ID number</td><td>Required, unique, only last 4 shown publicly.</td></tr>
+    <tr><td><code>phone</code></td><td>Phone number</td><td>Required, unique, used for WhatsApp notification link.</td></tr>
+    <tr><td><code>email</code></td><td>Email address</td><td>Required, unique, used for approval email when configured.</td></tr>
+    <tr><td><code>position</code></td><td>Worker role</td><td>Required, used in ID generation.</td></tr>
+    <tr><td><code>photo</code></td><td>Photo data URL</td><td>Required. Stored as image data in the record.</td></tr>
+    <tr><td><code>verificationToken</code></td><td>Private token for QR and claim links</td><td>Random 24-byte hex string.</td></tr>
+    <tr><td><code>status</code></td><td>Card state</td><td>Pending, Approved, Rejected, Suspended, Lost, Inactive.</td></tr>
+    <tr><td><code>inactiveReason</code></td><td>Reason when inactive</td><td>Shown on verification result.</td></tr>
+    <tr><td><code>approvedBy</code></td><td>Admin username</td><td>Set on approval.</td></tr>
+    <tr><td><code>approvedAt</code></td><td>Approval timestamp</td><td>Set on approval.</td></tr>
+    <tr><td><code>createdAt</code></td><td>Creation timestamp</td><td>Set when created.</td></tr>
+    <tr><td><code>updatedAt</code></td><td>Last update timestamp</td><td>Set on edits/status changes.</td></tr>
+  </table>
+
+  <h2>9. Card Design Logic</h2>
+  <div class="card-spec">
+    <div>
+      <div class="mini-card">
+        <div class="mini-logo">Logo</div>
+        <div class="mini-photo">Photo</div>
+        <div class="mini-band"></div>
+        <div class="mini-lines"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <div>
+      <h3>Front Side</h3>
+      <ul>
+        <li>Card size in the UI: <code>330px x 520px</code>.</li>
+        <li>Rounded white card with a light border and subtle shadow.</li>
+        <li>Logo at top: <code>left 40px</code>, <code>top 20px</code>, <code>250px x 124px</code>.</li>
+        <li>Photo circle: <code>172px x 172px</code>, gold border, centered near top.</li>
+        <li>Blue information band starts around <code>top 328px</code>.</li>
+        <li>Fields shown: Name, ID No., Position.</li>
+        <li>Primary colors: blue <code>#4b9bda</code>, gold <code>#f0c51b</code>, ink <code>#202938</code>.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card-spec">
+    <div>
+      <div class="mini-card">
+        <div class="mini-qr"></div>
+        <div class="mini-back-text">Return address and cardholder responsibilities</div>
+        <div class="mini-back-logo"></div>
+      </div>
+    </div>
+    <div>
+      <h3>Back Side</h3>
+      <ul>
+        <li>QR box at top center: <code>100px x 100px</code>.</li>
+        <li>Approved worker QR points to <code>/?token=VERIFICATION_TOKEN</code>.</li>
+        <li>Master card QR points to <code>/?master=MASTER_TOKEN#apply</code>.</li>
+        <li>Text block includes return address and cardholder responsibilities.</li>
+        <li>Logo sits near bottom center.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>10. Security and Configuration</h2>
+  <ul>
+    <li>Admin passwords are stored as PBKDF2 hashes with random salt.</li>
+    <li>Admin sessions use random bearer tokens and expire after 8 hours.</li>
+    <li>Login, reset, and API calls have simple rate limiting by IP/path.</li>
+    <li>Supabase service-role key must stay on the server only.</li>
+    <li>Content security policy allows the local app, QR server images, and html2canvas CDN.</li>
+    <li>Required deployment variables: <code>PORT</code>, <code>PUBLIC_BASE_URL</code>, <code>ADMIN_USER</code>, <code>ADMIN_PASS</code>, <code>ADMIN_EMAIL</code>, <code>MASTER_TOKEN</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>.</li>
+    <li>Email notifications need <code>RESEND_API_KEY</code> and <code>RESET_FROM_EMAIL</code>.</li>
+  </ul>
+  <div class="note">Do not put real passwords, service-role keys, or Resend API keys inside HTML files. Keep them in hosting environment variables or a private local <code>.env</code>.</div>
+
+  <h2>11. Redesign Checklist for Another System</h2>
+  <ol>
+    <li>Rename the brand, logo, colors, return address, phone number, and responsibility text.</li>
+    <li>Decide the ID prefix and position-code rules. Replace <code>JIX</code> if needed.</li>
+    <li>Create a new master token and regenerate/print the master QR only after the final hosted URL is ready.</li>
+    <li>Keep the status workflow unless the new organization needs extra states.</li>
+    <li>Update required registration fields if the new organization needs department, expiry date, emergency contact, or employee number.</li>
+    <li>Update the database schema when adding fields, then update create, edit, CSV, backup, and public verification outputs.</li>
+    <li>Keep QR verification server-based so lost/inactive cards can be invalidated after printing.</li>
+    <li>Test the full path: master QR registration, pending save, admin approval, worker claim link, card download, QR verification, inactive verification.</li>
+  </ol>
+</body>
+</html>

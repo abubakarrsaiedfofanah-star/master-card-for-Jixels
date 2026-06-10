@@ -10,14 +10,15 @@
     :root { --blue: #4b9bda; --ink: #202938; --line: #d9e0ea; --page: #eef2f6; }
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-    main { width: min(560px, calc(100% - 24px)); margin: 0 auto; padding: 18px 0 32px; }
-    .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+    main { width: min(640px, calc(100% - 18px)); margin: 0 auto; padding: 18px 0 32px; }
+    .panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: clamp(14px, 3vw, 18px); display: grid; gap: 12px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
     h1 { margin: 0; font-size: 24px; }
     label { display: grid; gap: 6px; font-weight: 800; font-size: 13px; }
     input, select { width: 100%; border: 1px solid #cbd4df; border-radius: 6px; padding: 12px; font: inherit; }
     button, a.button { border: 0; border-radius: 6px; padding: 12px 14px; background: var(--blue); color: #fff; font-weight: 800; text-decoration: none; text-align: center; }
     button.secondary, a.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 auto; }
     .notice { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 12px; font-weight: 700; line-height: 1.4; }
     .person { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #f8fafc; }
     .person img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; object-position: center top; background: #e5e7eb; }
@@ -27,8 +28,16 @@
     .person dd { margin: 0; font-weight: 700; }
     .danger { border-color: #fecaca; background: #fff1f2; color: #991b1b; }
     .ok { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
-    video { width: 100%; border-radius: 8px; background: #111827; }
+    video { width: 100%; border-radius: 8px; background: #111827; max-height: 60vh; object-fit: cover; }
     .hidden { display: none !important; }
+
+    @media (max-width: 640px) {
+      main { width: min(100% - 12px, 640px); padding-top: 10px; }
+      h1 { font-size: 22px; }
+      .row { flex-direction: column; }
+      .row > * { width: 100%; }
+      button, a.button { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -142,6 +151,18 @@
       return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
+    function isIOSDevice() {
+      return /iphone|ipad|ipod/i.test(window.navigator.userAgent.toLowerCase());
+    }
+
+    function showInstallGuide() {
+      const message = isIOSDevice()
+        ? 'On iPhone/iPad, tap Share and choose “Add to Home Screen”. On Android, use the browser menu and choose “Install app” or “Add to Home Screen”.'
+        : 'Use your browser menu (⋮) and choose “Install app” or “Add to Home Screen”.';
+      els.scanNotice.textContent = message;
+      els.scanNotice.className = 'notice danger';
+    }
+
     function updateDeviceNotice() {
       if (inviteToken && !state.scannerSession) {
         els.deviceNotice.textContent = 'Set up this phone as a Jixels scanner phone.';
@@ -155,6 +176,7 @@
         if (state.scannerSession && !isInstalledApp()) {
           els.deviceNotice.textContent = 'Install and open the Scanner App before scanning worker ID cards.';
           els.deviceNotice.className = 'notice danger';
+          els.installBtn.textContent = state.installPrompt ? 'Install App' : (isIOSDevice() ? 'Add to Home Screen' : 'Install App');
           els.installBtn.classList.remove('hidden');
           els.setupBox.classList.add('hidden');
           els.loginBox.classList.add('hidden');
@@ -386,11 +408,20 @@
       els.installBtn.classList.remove('hidden');
     });
     els.installBtn.addEventListener('click', async () => {
-      if (!state.installPrompt) return;
-      state.installPrompt.prompt();
-      await state.installPrompt.userChoice.catch(() => {});
+      if (state.installPrompt) {
+        state.installPrompt.prompt();
+        await state.installPrompt.userChoice.catch(() => {});
+        state.installPrompt = null;
+        els.installBtn.classList.add('hidden');
+        return;
+      }
+      showInstallGuide();
+    });
+    window.addEventListener('appinstalled', () => {
       state.installPrompt = null;
       els.installBtn.classList.add('hidden');
+      els.scanNotice.textContent = 'Scanner app installed. Open it to continue scanning.';
+      els.scanNotice.className = 'notice ok';
     });
     if ('serviceWorker' in navigator) {
       let refreshing = false;

@@ -34,7 +34,7 @@
       color: #fff;
     }
     .admin-header-inner, .admin-footer-inner {
-      width: min(1180px, calc(100% - 28px));
+      width: min(1280px, calc(100% - 18px));
       margin: 0 auto;
     }
     .admin-header-inner {
@@ -64,8 +64,8 @@
     .logout-btn.visible { display: inline-flex; }
     main { width: 100%; margin: 0; padding: 0; flex: 1; }
     .admin-footer-inner { padding: 14px 0; font-size: 12px; font-weight: 700; }
-    .topbar, .panel { min-width: 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-    .topbar { width: min(420px, calc(100% - 28px)); margin: 30px auto 16px; display: grid; gap: 14px; }
+    .topbar, .panel { min-width: 0; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: clamp(14px, 2.8vw, 18px); }
+    .topbar { width: min(520px, calc(100% - 18px)); margin: 24px auto 16px; display: grid; gap: 14px; }
     h1, h2 { margin: 0; }
     h1 { font-size: 24px; }
     h2 { font-size: 18px; margin-bottom: 12px; }
@@ -98,10 +98,10 @@
     .admin-shell {
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
-      gap: 20px;
+      gap: clamp(14px, 2vw, 22px);
       align-items: stretch;
       min-height: calc(100vh - 118px);
-      padding: 24px;
+      padding: clamp(12px, 2vw, 24px);
     }
     .mobile-menu-btn { display: none; }
     .side-menu {
@@ -129,6 +129,7 @@
     .admin-content { min-width: 0; display: grid; gap: 16px; }
     .tab-panel { min-width: 0; min-height: calc(100vh - 166px); display: grid; align-content: start; gap: 16px; }
     .dashboard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .attendance-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .dash-card { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 14px; }
     .dash-card strong { display: block; font-size: 26px; margin-bottom: 4px; }
     label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 11px; }
@@ -138,7 +139,6 @@
     th { font-size: 12px; color: #617086; }
     .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .summary span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; background: #f8fafc; }
-    .attendance-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
     .attendance-summary .dash-card { padding: 12px; }
     .active-now-list { display: flex; flex-wrap: wrap; gap: 8px; }
     .active-now-list span { border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #14532d; padding: 6px 10px; font-size: 12px; font-weight: 800; }
@@ -177,16 +177,17 @@
     .card-stage {
       max-width: 100%;
       display: grid;
-      grid-template-columns: repeat(2, 330px);
-      gap: 20px;
-      justify-content: center;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: clamp(12px, 2vw, 20px);
+      justify-items: center;
       align-items: start;
       overflow-x: auto;
       padding: 6px 0 12px;
     }
     .id-card {
-      width: 330px;
-      height: 520px;
+      width: min(100%, 340px);
+      aspect-ratio: 330 / 520;
+      height: auto;
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 24px;
@@ -253,19 +254,21 @@
       .side-menu { position: static; display: none; min-height: auto; }
       .side-menu.open { display: grid; }
       .dashboard-grid { grid-template-columns: 1fr 1fr; }
+      .attendance-summary { grid-template-columns: 1fr 1fr; }
       .admin-header-inner { min-height: 82px; align-items: flex-start; flex-direction: column; justify-content: center; }
       .header-actions { justify-content: flex-start; }
       .admin-status { white-space: normal; }
       .controls { display: grid; grid-template-columns: 1fr; }
       .controls input, .controls button, .controls label.button { width: 100%; }
-      .card-stage { grid-template-columns: 330px; justify-content: start; }
+      .card-stage { grid-template-columns: 1fr; justify-content: start; }
     }
     @media (min-width: 861px) and (max-width: 1160px) {
       .admin-shell { grid-template-columns: 230px minmax(0, 1fr); }
-      .card-stage { grid-template-columns: 330px; justify-content: start; }
+      .card-stage { grid-template-columns: repeat(2, minmax(280px, 1fr)); justify-content: start; }
     }
     @media (max-width: 560px) {
-      .dashboard-grid { grid-template-columns: 1fr; }
+      .dashboard-grid, .attendance-summary { grid-template-columns: 1fr; }
+      .card-stage { grid-template-columns: 1fr; }
     }
     @media print {
       body { background: #fff; display: block; }

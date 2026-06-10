@@ -1,6 +1,7 @@
 {
   "name": "Jixels Scanner Admin",
   "short_name": "Jixels Scan",
+  "id": "/",
   "start_url": "/scanner",
   "scope": "/",
   "display": "standalone",
