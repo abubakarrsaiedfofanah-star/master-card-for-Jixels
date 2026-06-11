@@ -27,12 +27,12 @@ const port = Number(process.env.PORT || 8080);
 const dbPath = path.join(root, 'cards-db.json');
 const auditPath = path.join(root, 'audit-log.json');
 const attendancePath = path.join(root, 'attendance-log.json');
-const scannerDevicesPath = path.join(root, 'scanner-devices.json');
-const adminConfigPath = path.join(root, 'admin-config.json');
-const masterConfigPath = path.join(root, 'master-config.json');
-const adminUser = process.env.ADMIN_USER || 'admin';
-const adminPass = process.env.ADMIN_PASS || '1234';
-const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const scannerDevicesPath = path.join(root, 'scanner-devices.json'); // Still used for local fallback
+const adminConfigPath = path.join(root, 'admin-config.json'); // Still used for local fallback
+const masterConfigPath = path.join(root, 'master-config.json'); // Still used for local fallback
+const defaultAdminUser = process.env.ADMIN_USER || 'admin'; // Used for initial Supabase setup or local fallback
+const defaultAdminPass = process.env.ADMIN_PASS || '1234'; // Used for initial Supabase setup or local fallback
+const defaultAdminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase(); // Used for initial Supabase setup or local fallback
 const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
 const masterToken = String(process.env.MASTER_TOKEN || '').trim();
 function normalizeSupabaseUrl(value) {
@@ -355,6 +355,24 @@ async function saveCards(cards) {
   if (cards.length) await supabaseRequest('POST', 'cards', '', cards.map(toSupabaseCard));
 }
 
+async function updateSingleCard(card, cards) {
+  if (!useSupabase) {
+    if (cards) localSaveCards(cards);
+    return;
+  }
+  await supabaseRequest('PATCH', 'cards', `?id=eq.${encodeURIComponent(card.id)}`, toSupabaseCard(card));
+}
+
+async function insertSingleCard(card) {
+  if (!useSupabase) {
+    const cards = await loadCards();
+    cards.push(card);
+    localSaveCards(cards);
+    return;
+  }
+  await supabaseRequest('POST', 'cards', '', toSupabaseCard(card));
+}
+
 async function loadAudit() {
   if (!useSupabase) return localLoadAudit();
   const rows = await supabaseRequest('GET', 'audit_log', '?select=*&order=created_at.desc');
@@ -404,32 +422,52 @@ function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(String(password), salt, 120000, 32, 'sha256').toString('hex');
 }
 
-function loadAdminConfig() {
-  if (fs.existsSync(adminConfigPath)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
-      if (!config.email && adminEmail) {
-        config.email = adminEmail;
-        saveAdminConfig(config);
-      }
-      return config;
-    } catch {}
+async function loadAdminConfig() {
+  if (!useSupabase) {
+    if (fs.existsSync(adminConfigPath)) {
+      try { return JSON.parse(fs.readFileSync(adminConfigPath, 'utf8')); } catch {}
+    }
+    const salt = crypto.randomBytes(16).toString('hex');
+    return {
+      username: defaultAdminUser,
+      email: defaultAdminEmail,
+      salt,
+      passwordHash: hashPassword(defaultAdminPass, salt),
+      role: 'super-admin',
+      branch: ''
+    };
   }
-  const salt = crypto.randomBytes(16).toString('hex');
-  const config = {
-    username: adminUser,
-    email: adminEmail,
-    salt,
-    passwordHash: hashPassword(adminPass, salt),
-    role: 'super-admin',
-    branch: ''
-  };
-  fs.writeFileSync(adminConfigPath, JSON.stringify(config, null, 2));
-  return config;
+
+  const rows = await supabaseRequest('GET', 'admin_users', '?select=*&limit=1');
+  if (rows && rows.length > 0) {
+    const user = rows[0];
+    return {
+      username: user.username,
+      email: user.email,
+      salt: user.password_salt,
+      passwordHash: user.password_hash,
+      role: user.role,
+      branch: user.branch || ''
+    };
+  }
+  return null;
 }
 
-function saveAdminConfig(config) {
-  fs.writeFileSync(adminConfigPath, JSON.stringify(config, null, 2));
+async function saveAdminConfig(config) {
+  if (!useSupabase) {
+    fs.writeFileSync(adminConfigPath, JSON.stringify(config, null, 2));
+    return;
+  }
+  const payload = {
+    username: config.username,
+    email: config.email,
+    password_hash: config.passwordHash,
+    password_salt: config.salt,
+    role: config.role,
+    branch: config.branch,
+    updated_at: new Date().toISOString()
+  };
+  await supabaseRequest('PATCH', 'admin_users', `?username=eq.${encodeURIComponent(config.username)}`, payload);
 }
 
 function sendEmail(to, subject, text) {
@@ -633,8 +671,8 @@ function shouldRotateVerificationToken(status) {
   return ['Inactive', 'Suspended', 'Lost'].includes(status);
 }
 
-function confirmAdminPassword(password) {
-  const config = loadAdminConfig();
+async function confirmAdminPassword(password) {
+  const config = await loadAdminConfig();
   return hashPassword(password || '', config.salt) === config.passwordHash;
 }
 
@@ -946,7 +984,7 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
-      const config = loadAdminConfig();
+      const config = await loadAdminConfig();
       const ok = String(payload.username || '') === config.username &&
         hashPassword(payload.password || '', config.salt) === config.passwordHash;
       if (!ok) {
@@ -975,7 +1013,7 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
-      const config = loadAdminConfig();
+      const config = await loadAdminConfig();
       const email = String(payload.email || '').trim().toLowerCase();
       if (!config.email || email !== String(config.email).toLowerCase()) {
         sendJson(res, 404, { error: 'This email is not registered for admin password reset.' });
@@ -997,7 +1035,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/reset-password' && req.method === 'POST') {
     try {
       const payload = JSON.parse(await readBody(req));
-      const config = loadAdminConfig();
+      const config = await loadAdminConfig();
       const email = String(payload.email || '').trim().toLowerCase();
       const reset = resetCodes.get(email);
       if (!config.email || email !== String(config.email).toLowerCase() || !reset || Date.now() > reset.expiresAt) {
@@ -1013,7 +1051,7 @@ async function handleApi(req, res, url) {
         sendJson(res, 400, { error: 'Password must be at least 10 characters.' });
         return true;
       }
-      const salt = crypto.randomBytes(16).toString('hex');
+      const salt = crypto.randomBytes(16).toString('hex'); // New salt for new password
       config.salt = salt;
       config.passwordHash = hashPassword(password, salt);
       saveAdminConfig(config);
@@ -1034,13 +1072,13 @@ async function handleApi(req, res, url) {
     }
     try {
       const payload = JSON.parse(await readBody(req));
-      const config = loadAdminConfig();
+      const config = await loadAdminConfig();
       const salt = crypto.randomBytes(16).toString('hex');
       config.username = String(payload.username || config.username).trim() || config.username;
       config.email = String(payload.email || config.email || '').trim().toLowerCase();
       config.salt = salt;
       config.passwordHash = hashPassword(payload.password || '', salt);
-      saveAdminConfig(config);
+      await saveAdminConfig(config);
       await appendAudit('password-changed', { id: config.username }, admin.username);
       sendJson(res, 200, { ok: true });
     } catch (error) {
@@ -1327,7 +1365,7 @@ async function handleApi(req, res, url) {
       return true;
     }
     try {
-      const payload = JSON.parse(await readBody(req));
+      const payload = JSON.parse(await readBody(req)); // Assuming payload contains currentPassword
       if (!confirmAdminPassword(payload.currentPassword)) {
         sendJson(res, 403, { error: 'Current admin password is required.' });
         return true;
@@ -1488,8 +1526,7 @@ async function handleApi(req, res, url) {
 
       card.id = createUniqueId(cards, card.position);
       card.verificationToken = createVerificationToken();
-      cards.push(card);
-      await saveCards(cards);
+      await insertSingleCard(card);
       await appendAudit('created', card, isAdmin(req) ? 'admin' : 'public');
       sendJson(res, 201, { card: withQrToken(card) });
     } catch (error) {
@@ -1595,7 +1632,7 @@ async function handleApi(req, res, url) {
         card.approvedBy = currentAdmin(req)?.username || req.headers['x-admin-user'] || 'admin';
       }
       card.updatedAt = new Date().toISOString();
-      await saveCards(cards);
+      await updateSingleCard(card, cards);
       let emailSent = false;
       let emailError = '';
       if (status === 'Approved' && !wasApproved) {
@@ -1631,7 +1668,7 @@ async function handleApi(req, res, url) {
     card.inactiveReason = 'Marked inactive instead of deleted.';
     card.verificationToken = createVerificationToken();
     card.updatedAt = new Date().toISOString();
-    await saveCards(cards);
+    await updateSingleCard(card, cards);
     await appendAudit('inactive-via-delete-request', card, currentAdmin(req)?.username || 'admin');
     sendJson(res, 200, { ok: true, card: withQrToken(card), message: 'Card marked inactive instead of deleted.' });
     return true;
@@ -1667,30 +1704,14 @@ const app = async (req, res) => {
   });
 };
 
-function createServer() {
-  return process.env.HTTPS_KEY && process.env.HTTPS_CERT
-    ? https.createServer({
-        key: fs.readFileSync(process.env.HTTPS_KEY),
-        cert: fs.readFileSync(process.env.HTTPS_CERT)
-      }, app)
-    : http.createServer(app);
-}
+const createServer = () => http.createServer(app);
 
-if (require.main === module) {
-  const server = createServer();
-  server.listen(port, '0.0.0.0', () => {
-    const protocol = process.env.HTTPS_KEY && process.env.HTTPS_CERT ? 'https' : 'http';
-    console.log(`Jixels ID app running at ${protocol}://localhost:${port}`);
-  });
-}
+app.extractVerificationToken = extractVerificationToken;
+app.requireRegisteredScannerDevice = requireRegisteredScannerDevice;
+app.scanAction = scanAction;
+app.signQrPayload = signQrPayload;
+app.readQrPayload = readQrPayload;
+app.shouldRotateVerificationToken = shouldRotateVerificationToken;
+app.createServer = createServer;
 
-module.exports = {
-  app,
-  createServer,
-  extractVerificationToken,
-  requireRegisteredScannerDevice,
-  scanAction,
-  signQrPayload,
-  readQrPayload,
-  shouldRotateVerificationToken
-};
+module.exports = app;
